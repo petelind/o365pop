@@ -365,7 +365,7 @@ scenarios:
     feature_file_paths:
       - docs/features/act-1-bridge/smtp.feature
     system_dependencies: []
-    min_status: in-progress
+    min_status: done
     log_story_script:
       - {beat: exit, where: "OutboundScanner.scan_once", trigger: sendMail_ok, must_include: ["sent=1"]}
       - {beat: error, where: "OutboundScanner.scan_once", trigger: graph_400, must_include: ["reason=send_failed"]}
