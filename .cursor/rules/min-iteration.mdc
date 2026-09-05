@@ -1,0 +1,74 @@
+---
+description: Edda v73 Manage Iteration contract for Cursor. Trigger on milestone work.
+alwaysApply: true
+---
+
+# Manage Iteration (Edda v73)
+
+DSP-04 target is **Cursor**. Iteration protocol lives here — not `CLAUDE.md` (Claude Code ADE). Playbook: `.cursor/playbooks/edda/MIN/`.
+
+Trigger: **"Work on Milestone #N"**
+
+Roles: **TL** (this session) sequences and reviews, writes no feature logic. **dr-dobbs** implements one `feature_execution_graph` node per fresh subagent. **Saga** runs UAT scoped to `feature_file_paths[]`.
+
+Stack: no Django migrate, no Playwright. Gates are pytest / `make test` (`not live_graph`). Saga uses catalogued pytest, not a browser.
+
+---
+
+## Iteration Protocol
+
+1. Locate the manifest by `milestone_number: N` in `docs/plans/iterations/ITER-*.yaml`. Do not pick newest file.
+2. Follow MIN-01 → MIN-07. PIN must have published issues and a non-null `milestone_number`.
+3. Load context from that manifest + `docs/plans/iterations/pin-orient-*.md` (MIN-02). Do not re-read SAO/features from scratch.
+4. Claim the next READY issue (`status-queued` → `status-in-progress`). Respect `parallel_groups` and `conflict_map`.
+5. Parse `<!-- FEATURE_EXECUTION_GRAPH -->`. Dispatch a **fresh** dr-dobbs subagent per ready node. Never resume a worker.
+6. Worker: fill stubs in `footprint[]` only, run `gate.command` (+ `log_story_command` when declared), commit, post `NODE_PASS` with SHA, **stop**.
+7. After all nodes `NODE_PASS`, post `BUILD_COMPLETE` and run MIN-04 (verify BPE-06 node, BPE-07, close with `GATE_PASS`).
+8. When the milestone has no open issues: open the iteration PR. Do not merge. MIN-05 Saga UAT on the iteration branch.
+9. Blockers → MIN-06 (BPE-09 workers + Saga regression). CLEAN → MIN-07. Merge and release only on explicit human **"merge"** / **"release"**.
+
+Active: `docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml` (milestone **#1**). S1–S4 done. S5 #5 in progress (SEND1.1 next). S6–S7 queued.
+
+---
+
+## Drift Handling
+
+| Signal | Action |
+|--------|--------|
+| Gate fail (first) | Worker retries once |
+| Gate fail after worker retry | TL dispatches one targeted fix worker |
+| Gate fail after TL fix | Escalate (`drift-escalated`) |
+| `footprint_violation` | Escalate immediately |
+| `method_explosion` | Escalate immediately |
+| `sao_violation` / `do_not_do` | Escalate immediately |
+| Same node absorbed twice | Escalate |
+
+Manifest `drift_thresholds` match: one absorbed checkpoint retry; then escalate.
+
+---
+
+## Session Resume Protocol
+
+1. Find `status-in-progress` on the milestone (or first READY queued issue).
+2. Re-run that issue’s last `gate.command` / scenario `checkpoint.command`.
+3. PASS → close if BUILD_COMPLETE+GATE already earned; else continue remaining graph nodes.
+4. FAIL → treat as first absorbed retry, then escalate.
+5. Dirty tree: do not dispatch until clean.
+
+---
+
+## Authority Model
+
+**TL can decide:** queue order inside the conflict map; dispatch workers; trivial import-order fixes; absorb the one documented retry.
+
+**TL must escalate:** third gate fail; footprint / method / SAO breach; vague feature steps; adding or dropping a scenario.
+
+**TL cannot:** write feature logic or new tests; merge to `main`; push; create a release; change the iteration goal.
+
+**dr-dobbs can decide:** algorithm inside an existing signature; one gate retry.
+
+**dr-dobbs must escalate:** retry exhausted; file outside footprint; new public method; missing `system_dependencies[]`.
+
+**dr-dobbs cannot:** change signatures; touch files outside `footprint[]`; claim a second node or issue; merge or release.
+
+**Saga cannot:** expand past `feature_file_paths[]`; skip assertions; edit specs or tests. Spec wins over stale tests (`test-debt`, not bug).

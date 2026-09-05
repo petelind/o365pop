@@ -6,7 +6,7 @@ How humans and Cursor agents build o365pop. Architecture lock: `docs/architectur
 
 **Cursor.** Rules in `.cursor/rules/*.mdc` (`alwaysApply`). Agent bar: Dr. Dobbs v2 (`.cursor/agents/dr-dobbs-v2.md`). Playbook: `.cursor/playbooks/edda/`.
 
-Do not generate Windsurf, Claude Code, or Copilot configs unless DSP-04 is re-run.
+Do not generate Windsurf, Claude Code (`CLAUDE.md`), or Copilot configs unless DSP-04 is re-run.
 
 ## Delivery loop
 
@@ -34,6 +34,6 @@ Do not generate Windsurf, Claude Code, or Copilot configs unless DSP-04 is re-ru
 | How to implement | matching `docs/plans/*_IMPLEMENTATION_PLAN.md` |
 | How to run | `make help` |
 
-Active iteration: `docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`. Jedao protocol: `CLAUDE.md`. Next implementable scenario: **SMTP SEND1.1** (S5).
+Active iteration: `docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`. MIN: `.cursor/rules/min-iteration.mdc`. Next implementable scenario: **SMTP SEND1.1** (S5).
 
 DSP/TFK verification: `docs/process/DSP_VERIFICATION.md`, `docs/process/TFK_VERIFICATION.md`.

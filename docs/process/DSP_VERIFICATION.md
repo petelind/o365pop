@@ -5,7 +5,7 @@
 **Target IDE:** Cursor (DSP-04; operator lock — no Windsurf / Copilot / Claude Code ADE)
 **Date:** 2026-09-05
 
-`CLAUDE.md` is the **Jedao iteration protocol** for this mail-bridge sprint. It is not a DSP-05 Claude Code export. Cursor ADE is `.cursor/rules/_ai-context.mdc`.
+DSP-04 target is **Cursor**. ADE is `.cursor/rules/_ai-context.mdc` plus other `.cursor/rules/*.mdc`. There is no `CLAUDE.md` (that file is Claude Code only). MIN protocol: `.cursor/rules/min-iteration.mdc`.
 
 ---
 

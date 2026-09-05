@@ -60,7 +60,7 @@ docs/{architecture,features,plans,ux,process}
 | Process playbook | `.cursor/playbooks/edda/` | When running a workflow |
 | Dr. Dobbs agent | `.cursor/agents/dr-dobbs-v2.md` | Implementing features |
 | Agent entry | `AGENTS.md` | First read for any agent session |
-| Iteration protocol | `CLAUDE.md` | Jedao MIT for this sprint (not Claude Code ADE) |
+| Iteration protocol | `.cursor/rules/min-iteration.mdc` | Edda v73 MIN (Cursor ADE — no CLAUDE.md) |
 
 ---
 
@@ -82,7 +82,7 @@ Playbook: **Edda v73** (`.cursor/playbooks/edda/`). Folders are abbreviations (`
 | MIN | Manage Iteration | 7 | TL dispatch / gate / UAT / close |
 | TFK | Test Automation Framework | 9 | Harness / catalogs |
 
-This sprint still executes MIN via `CLAUDE.md` (Jedao doctrine 2.0). Do not switch to TL/Saga mid-iteration unless the human says so.
+MIN runs from `.cursor/rules/min-iteration.mdc` (TL / dr-dobbs / Saga). DSP-04 is Cursor only — do not generate `CLAUDE.md`.
 
 ---
 

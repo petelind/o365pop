@@ -5,6 +5,7 @@ Project entry point for **Cursor** agents. Assume **Dr. Dobbs v2** when implemen
 | Topic | Canonical doc |
 |--------|----------------|
 | Cursor ADE map | [`.cursor/rules/_ai-context.mdc`](.cursor/rules/_ai-context.mdc) |
+| Iteration protocol | [`.cursor/rules/min-iteration.mdc`](.cursor/rules/min-iteration.mdc) |
 | Stack locks | [`.cursor/rules/o365pop-stack-locks.mdc`](.cursor/rules/o365pop-stack-locks.mdc) |
 | Software process | [`docs/process/MODUS_OPERANDI.md`](docs/process/MODUS_OPERANDI.md) |
 | DSP verification | [`docs/process/DSP_VERIFICATION.md`](docs/process/DSP_VERIFICATION.md) |
@@ -24,8 +25,8 @@ Project entry point for **Cursor** agents. Assume **Dr. Dobbs v2** when implemen
 
 ## ADE status
 
-DSP re-run 2026-09-05 against **Edda v73** for **Cursor**. ESM/DTA/BSP/TFK are in place. No Copilot / Windsurf / Claude Code ADE (single-IDE choice).
+DSP re-run 2026-09-05 against **Edda v73** for **Cursor**. ESM/DTA/BSP/TFK/PIN are in place. No Copilot / Windsurf / Claude Code ADE — no `CLAUDE.md`.
 
-Jedao iteration protocol (doctrine 2.0) lives in [`CLAUDE.md`](CLAUDE.md) — required by this sprint’s MIT, not a Claude Code ADE export.
+MIN contract: [`.cursor/rules/min-iteration.mdc`](.cursor/rules/min-iteration.mdc). Activate with **Work on Milestone #1**.
 
 Active iteration: [`docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`](docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml). Next implementable scenario: **SMTP SEND1.1** (S5).

@@ -17,7 +17,7 @@ This is a **reconcile**, not a second iteration. Branch `iteration/20260905-mail
 | 2 User journey | PASS — Act 1–4 in `docs/features/user_journey.md` |
 | 3 Feature specs | PASS — 6 files in `docs/features/act-1-bridge/` |
 | 4 SAO.md | PASS |
-| 5 AI IDE | PASS — `CLAUDE.md` (Jedao MIT) + `.cursor/rules/_ai-context.mdc` (Cursor ADE) |
+| 5 AI IDE | PASS — Cursor ADE `.cursor/rules/_ai-context.mdc` + `min-iteration.mdc` (stock PIN checks `CLAUDE.md`; DSP-04 Cursor substitute) |
 | 6 Agent harness | SKIP — `agent_harness: n/a` (SAO §17) |
 
 Mockups: none. Advisory skip — SAO §1 has no UI. Feature specs only.
@@ -59,7 +59,7 @@ Platform: **GitHub** (`petelind/o365pop`).
 
 ## PIN-05 Human Acceptance
 
-CLAUDE.md four protocol sections present (Jedao doctrine 2.0). Graph-node wording aligned to BPE-02→BPE-05 pytest gates. **Not** switched to Edda MIN TL/Saga mid-sprint.
+PIN-05 protocol sections live in `.cursor/rules/min-iteration.mdc` (Edda v73 TL / dr-dobbs / Saga). Stock PIN-05 names `CLAUDE.md`; DSP-04 Cursor does not generate that file.
 
 **STOP — waiting for explicit human GO.**
 
