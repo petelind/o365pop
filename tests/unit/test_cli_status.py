@@ -38,14 +38,19 @@ def test_status_prints_healthy(
 
 
 @pytest.mark.unit
-def test_stub_login_exits_two(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """login is reserved for AUTH and must not pretend to work.
+def test_login_without_encryption_key_exits_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """login refuses to run when TOKEN_ENCRYPTION_KEY is missing.
 
     :param monkeypatch: Env overrides
     :param tmp_path: Isolated workspace
+    :param capsys: Capture stderr
     :return: None
     """
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "var"))
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", "")
     monkeypatch.chdir(tmp_path)
-    assert main(["login"]) == 2
+    assert main(["login"]) == 1
+    assert "TOKEN_ENCRYPTION_KEY" in capsys.readouterr().err

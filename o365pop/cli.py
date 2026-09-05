@@ -5,10 +5,14 @@ from __future__ import annotations
 import argparse
 import logging
 import platform
+import sqlite3
 import sys
 from collections.abc import Sequence
 
 from o365pop import __version__
+from o365pop.accounts.errors import AuthenticationError
+from o365pop.accounts.graph_auth import GraphAuthService, live_device_code_port, live_msal_port
+from o365pop.accounts.store import _hash_local_password, get_account, upsert_account
 from o365pop.config import Settings, load_settings
 from o365pop.db import REQUIRED_TABLES, connect, init_schema, list_tables
 from o365pop.logging_setup import configure_logging
@@ -38,6 +42,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_status(settings)
     if args.command == "init-db":
         return run_init_db(settings)
+    if args.command == "login":
+        return run_login(settings)
     return run_stub(args.command)
 
 
@@ -79,6 +85,58 @@ def run_init_db(settings: Settings) -> int:
     print(f"Schema ready at {settings.db_path} tables={tables}")
     logger.info("cli.run_init_db | exit | tables=%s", tables)
     return 0
+
+
+def run_login(settings: Settings) -> int:
+    """Device-code Microsoft login; store encrypted tokens (AUTH).
+
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: ``0`` on success, ``1`` on auth/config failure. Example: ``0``
+    """
+    logger.info("cli.run_login | entry")
+    if not settings.token_encryption_key:
+        logger.error("cli.run_login | error | reason=missing_encryption_key")
+        print("TOKEN_ENCRYPTION_KEY is required.", file=sys.stderr)
+        return 1
+    conn = connect(settings.db_path)
+    try:
+        init_schema(conn)
+        _apply_local_mailbox(conn, settings)
+        service = GraphAuthService(
+            conn,
+            settings.token_encryption_key,
+            live_device_code_port(settings.azure_client_id, settings.azure_tenant_id),
+            live_msal_port(settings.azure_client_id, settings.azure_tenant_id),
+        )
+        username = service.login_device_code()
+    except (AuthenticationError, ValueError) as exc:
+        logger.error("cli.run_login | error | reason=auth_failed")
+        print(f"Login failed: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+    print(f"Logged in as {username}")
+    logger.info("cli.run_login | exit | user=%s", username)
+    return 0
+
+
+def _apply_local_mailbox(conn: sqlite3.Connection, settings: Settings) -> None:
+    """Persist local POP/SMTP user without touching Graph tokens.
+
+    :param conn: sqlite connection. Example: ``connect(path)``
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: None
+    """
+    if not settings.mailbox_user:
+        return
+    existing = get_account(conn)
+    upsert_account(
+        conn,
+        display_name=existing.display_name if existing and existing.display_name else settings.mailbox_user,
+        graph_user_id=existing.graph_user_id if existing and existing.graph_user_id else "",
+        mailbox_user=settings.mailbox_user,
+        mailbox_password_hash=_hash_local_password(settings.mailbox_password) if settings.mailbox_password else "",
+    )
 
 
 def run_stub(command: str) -> int:
