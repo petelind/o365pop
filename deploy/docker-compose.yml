@@ -12,6 +12,8 @@ services:
     env_file: /storage/o365pop/.env
     volumes:
       - /storage/o365pop/data:/app/var
+      - /storage/o365pop/maildir:/app/var/maildir
+      - /storage/o365pop/spool:/app/var/spool
       - /storage/o365pop/logs:/app/logs
     command: ["celery", "-A", "o365pop.celery_app", "worker", "-l", "INFO"]
     restart: unless-stopped
@@ -23,6 +25,8 @@ services:
     env_file: /storage/o365pop/.env
     volumes:
       - /storage/o365pop/data:/app/var
+      - /storage/o365pop/maildir:/app/var/maildir
+      - /storage/o365pop/spool:/app/var/spool
       - /storage/o365pop/logs:/app/logs
     command: ["celery", "-A", "o365pop.celery_app", "beat", "-l", "INFO"]
     restart: unless-stopped
@@ -34,6 +38,8 @@ services:
     env_file: /storage/o365pop/.env
     volumes:
       - /storage/o365pop/data:/app/var
+      - /storage/o365pop/maildir:/app/var/maildir
+      - /storage/o365pop/spool:/app/var/spool
       - /storage/o365pop/logs:/app/logs
     command: ["python", "-m", "o365pop", "popd"]
     restart: unless-stopped
@@ -44,6 +50,8 @@ services:
     env_file: /storage/o365pop/.env
     volumes:
       - /storage/o365pop/data:/app/var
+      - /storage/o365pop/maildir:/app/var/maildir
+      - /storage/o365pop/spool:/app/var/spool
       - /storage/o365pop/logs:/app/logs
     command: ["python", "-m", "o365pop", "smtpd"]
     restart: unless-stopped

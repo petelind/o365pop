@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from threading import Event
 
 from aiosmtpd.controller import Controller
 
+from o365pop.config import validate_bind
 from o365pop.smtpd.handler import BridgeHandler
 
 logger = logging.getLogger(__name__)
@@ -24,8 +26,9 @@ def run_smtpd(*, bind: str, port: int, spool_root: Path, db_path: Path) -> None:
     :raises ValueError: if bind is empty
     """
     logger.info("smtpd.service.run_smtpd | entry | bind=%s port=%s", bind, port)
-    if not bind:
-        raise ValueError("SMTP bind address is required")
+    allow_lan = _allow_lan_from_env()
+    validate_bind(bind, allow_lan=allow_lan)
+    logger.info("smtpd.service.run_smtpd | config | bind=%s port=%s", bind, port)
     controller = _make_controller(bind=bind, port=port, spool_root=spool_root, db_path=db_path)
     controller.start()
     logger.info("smtpd.service.run_smtpd | exit | listening=true bind=%s port=%s tls=false", bind, port)
@@ -33,6 +36,14 @@ def run_smtpd(*, bind: str, port: int, spool_root: Path, db_path: Path) -> None:
         Event().wait()
     finally:
         controller.stop()
+
+
+def _allow_lan_from_env() -> bool:
+    """Read ALLOW_LAN from the process environment.
+
+    :return: True when ALLOW_LAN is 1/true/TRUE. Example: ``False``
+    """
+    return os.getenv("ALLOW_LAN", "0") in ("1", "true", "TRUE")
 
 
 def _make_controller(*, bind: str, port: int, spool_root: Path, db_path: Path) -> Controller:

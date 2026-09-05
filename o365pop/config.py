@@ -114,6 +114,9 @@ def _env_int(name: str, default: int) -> int:
         raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
 
 
+_UNSPECIFIED_BINDS = frozenset({"0.0.0.0", "::"})
+
+
 def validate_bind(bind: str, *, allow_lan: bool) -> None:
     """Reject unspecified WAN binds unless ALLOW_LAN is set (DEP1.1).
 
@@ -123,4 +126,30 @@ def validate_bind(bind: str, *, allow_lan: bool) -> None:
     :raises ValueError: if bind is empty or ``0.0.0.0`` without allow_lan
     """
     logger.info("config.validate_bind | entry | bind=%s allow_lan=%s", bind, allow_lan)
-    raise NotImplementedError()
+    try:
+        _assert_bind_allowed(bind, allow_lan=allow_lan)
+    except ValueError as exc:
+        logger.error(
+            "config.validate_bind | error | bind=%s allow_lan=%s err=%s",
+            bind,
+            allow_lan,
+            exc,
+        )
+        raise
+    logger.info("config.validate_bind | config | bind=%s allow_lan=%s", bind, allow_lan)
+    logger.info("config.validate_bind | exit | status=ok bind=%s", bind)
+
+
+def _assert_bind_allowed(bind: str, *, allow_lan: bool) -> None:
+    """Raise if bind is empty or an unspecified WAN address without allow_lan.
+
+    :param bind: Listen address. Example: ``"10.8.0.1"``
+    :param allow_lan: When True, ``0.0.0.0`` / ``::`` are allowed. Example: ``False``
+    :return: None
+    :raises ValueError: if bind is empty or unspecified without allow_lan
+    """
+    address = (bind or "").strip()
+    if not address:
+        raise ValueError("bind address is required")
+    if address in _UNSPECIFIED_BINDS and not allow_lan:
+        raise ValueError(f"unspecified bind {address!r} requires ALLOW_LAN=1")

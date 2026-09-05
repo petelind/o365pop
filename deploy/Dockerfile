@@ -8,4 +8,5 @@ COPY o365pop o365pop
 COPY Makefile .
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 CMD ["python", "-m", "o365pop", "status"]

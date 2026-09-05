@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from twisted.cred.checkers import ICredentialsChecker
@@ -15,6 +16,7 @@ from twisted.mail.pop3 import POP3, IMailbox
 from zope.interface import implementer
 
 from o365pop.accounts.store import verify_local_password
+from o365pop.config import validate_bind
 from o365pop.db import connect
 from o365pop.mailstore.maildir import MaildirStore
 from o365pop.popd.mailbox import MaildirPopMailbox
@@ -33,12 +35,21 @@ def run_popd(*, bind: str, port: int, maildir: Path, db_path: Path) -> None:
     :raises ValueError: if bind is empty
     """
     logger.info("popd.service.run_popd | entry | bind=%s port=%s", bind, port)
-    if not bind:
-        raise ValueError("POP bind address is required")
+    allow_lan = _allow_lan_from_env()
+    validate_bind(bind, allow_lan=allow_lan)
+    logger.info("popd.service.run_popd | config | bind=%s port=%s", bind, port)
     factory = _build_factory(maildir, db_path)
     reactor.listenTCP(port, factory, interface=bind)
     logger.info("popd.service.run_popd | exit | listening=true bind=%s port=%s", bind, port)
     reactor.run(installSignalHandlers=False)
+
+
+def _allow_lan_from_env() -> bool:
+    """Read ALLOW_LAN from the process environment.
+
+    :return: True when ALLOW_LAN is 1/true/TRUE. Example: ``False``
+    """
+    return os.getenv("ALLOW_LAN", "0") in ("1", "true", "TRUE")
 
 
 def _build_factory(maildir: Path, db_path: Path) -> Factory:
