@@ -1,0 +1,419 @@
+iteration:
+  goal: "Ship the Entourage↔Microsoft 365 mail bridge (BOOT through DEP) on LibreELEC in one iteration"
+  doctrine_version: "2.0"
+  created_at: "2026-09-05T16:54:00-04:00"
+  branch: "iteration/20260905-mail-bridge"
+  github_milestone: null
+  pin03_blocked: "No git origin remote — GitHub Milestone/Issues deferred until a repo exists"
+
+conflict_map:
+  o365pop/sync/tasks.py: [S2, S3, S5]
+  o365pop/cli.py: [S2, S4, S5]
+  o365pop/tosser/outbound_scanner.py: [S5, S6]
+  o365pop/graph/port.py: [S3, S5, S6]
+  o365pop/graph/file_adapter.py: [S3, S5, S6]
+  o365pop/graph/http_adapter.py: [S3, S5, S6]
+  o365pop/celery_app.py: [S3, S5]
+  o365pop/config.py: [S7]
+  o365pop/popd/service.py: [S4, S7]
+  o365pop/smtpd/service.py: [S5, S7]
+  pyproject.toml: [S4, S5]
+
+parallel_groups:
+  A: [S1]
+  B: [S2]
+  C: [S3]
+  D: [S4]
+  E: [S5]
+  F: [S6]
+  G: [S7]
+
+drift_thresholds:
+  absorbed:
+    checkpoint_fail_retry: 1
+  escalated:
+    footprint_violation: true
+    method_explosion: true
+    sao_violation: true
+    checkpoint_fail_after_retry: true
+
+scenarios:
+  S1:
+    title: "BOOT Scaffold package, Celery, SQLite, logging"
+    github_issue: null
+    parallel_group: A
+    already_implemented: true
+    skeleton_commit: "d37776d026cdd51c1aa2874ae560fda273f6c683"
+    codebase_footprint:
+      - o365pop/__init__.py
+      - o365pop/__main__.py
+      - o365pop/celery_app.py
+      - o365pop/cli.py
+      - o365pop/config.py
+      - o365pop/db.py
+      - o365pop/logging_setup.py
+      - o365pop/schema.sql
+      - tests/unit/test_package_imports.py
+      - tests/unit/test_logging_configured.py
+      - tests/unit/test_db_schema.py
+      - tests/unit/test_celery_app.py
+      - tests/unit/test_cli_status.py
+    checkpoint:
+      command: "pytest tests/unit/test_package_imports.py tests/unit/test_logging_configured.py tests/unit/test_db_schema.py tests/unit/test_celery_app.py -x"
+      expected_exit_code: 0
+    dependencies: []
+    sao_sections:
+      - "§3 Code Organization"
+      - "§4 Data Architecture"
+      - "§11 Observability"
+      - "§12 Config & Secrets"
+      - "§15 Developer Experience"
+    context_map:
+      - file: "docs/architecture/SAO.md"
+        lines: "113-131"
+        note: "Package layout and no Django — do not add an HTTP app"
+      - file: "o365pop/celery_app.py"
+        lines: "16-47"
+        note: "acks_late + prefetch=1; later features add beat, do not rewrite the app"
+      - file: "o365pop/db.py"
+        lines: "15-28"
+        note: "sqlite helpers — AUTH adds account helpers here, not a second store"
+      - file: "o365pop/cli.py"
+        lines: "19-41"
+        note: "login/popd/smtpd stay stubs until their features"
+    do_not_do:
+      - "Do NOT add Django, FastAPI, or any HTTP app"
+      - "Do NOT vendor taciturn2 source"
+      - "Do NOT implement Graph, tosser, popd, or smtpd in this feature"
+      - "Do NOT commit .env, encryption keys, or *.sqlite3"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/BOOT_IMPLEMENTATION_PLAN.md"
+
+  S2:
+    title: "AUTH Device-code login and token vault"
+    github_issue: null
+    parallel_group: B
+    skeleton_commit: "60543af86f018a67411e58d49d714e1671562745"
+    codebase_footprint:
+      - o365pop/accounts/errors.py
+      - o365pop/accounts/crypto.py
+      - o365pop/accounts/store.py
+      - o365pop/accounts/ports.py
+      - o365pop/accounts/graph_auth.py
+      - o365pop/sync/sessions.py
+      - o365pop/sync/tasks.py
+      - o365pop/cli.py
+      - tests/unit/test_mailbox_account_tokens.py
+      - tests/unit/test_graph_auth_service.py
+      - tests/integration/test_auth_login.py
+      - tests/integration/test_auth_revoked.py
+    checkpoint:
+      command: "pytest tests/unit/test_mailbox_account_tokens.py tests/unit/test_graph_auth_service.py tests/integration/test_auth_login.py tests/integration/test_auth_revoked.py -x"
+      expected_exit_code: 0
+    dependencies: [S1]
+    sao_sections:
+      - "§2 Integration & API Design"
+      - "§4 Data Architecture"
+      - "§7 Error Handling & Resilience"
+      - "§11 Observability"
+      - "§12 Config & Secrets"
+      - "§13 Security"
+    context_map:
+      - file: "docs/features/act-1-bridge/auth.feature"
+        lines: "1-31"
+        note: "AUTH1.1–1.3 to prove"
+      - file: "o365pop/db.py"
+        lines: "15-28"
+        note: "sqlite; add account helpers via accounts/store, do not invent a second store"
+      - file: "o365pop/schema.sql"
+        lines: "4-15"
+        note: "mailbox_account encrypted token columns"
+      - file: "o365pop/sync/tasks.py"
+        lines: "12-22"
+        note: "AUTH1.3: AuthenticationError → mark_failed, return, do not raise/retry"
+      - file: "o365pop/cli.py"
+        lines: "84-93"
+        note: "Replace run_stub for login only — leave popd/smtpd stubs"
+    do_not_do:
+      - "Do NOT use a confidential-client / redirect URI flow"
+      - "Do NOT store the Microsoft password"
+      - "Do NOT log access token, refresh token, or device code"
+      - "Do NOT call Graph mail/chat APIs (token + /me validate only)"
+      - "Do NOT retry Celery on AuthenticationError"
+      - "Do NOT add Django User"
+      - "Do NOT implement inbound toss or POP/SMTP"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/AUTH_IMPLEMENTATION_PLAN.md"
+
+  S3:
+    title: "SYNC Graph pull, tosser, and maildir"
+    github_issue: null
+    parallel_group: C
+    skeleton_commit: "3b1ac6b92bca079024162a1c6e40738713574425"
+    codebase_footprint:
+      - o365pop/graph/port.py
+      - o365pop/graph/file_adapter.py
+      - o365pop/graph/http_adapter.py
+      - o365pop/mailstore/maildir.py
+      - o365pop/tosser/chat_address.py
+      - o365pop/tosser/mime_factory.py
+      - o365pop/tosser/inbound.py
+      - o365pop/tosser/index.py
+      - o365pop/sync/tasks.py
+      - o365pop/celery_app.py
+      - tests/unit/test_http_graph_adapter.py
+      - tests/unit/test_chat_address.py
+      - tests/unit/test_teams_mime_factory.py
+      - tests/integration/test_file_graph_adapter.py
+      - tests/integration/test_inbound_toss_outlook.py
+      - tests/integration/test_inbound_toss_teams.py
+      - tests/integration/test_sync_mailbox_task.py
+      - tests/integration/test_sync_mailbox_empty.py
+    checkpoint:
+      command: "pytest tests/integration/test_inbound_toss_outlook.py tests/integration/test_inbound_toss_teams.py tests/integration/test_sync_mailbox_task.py tests/integration/test_sync_mailbox_empty.py -x"
+      expected_exit_code: 0
+    dependencies: [S2]
+    sao_sections:
+      - "§1 Application Blocks"
+      - "§2 Integration & API Design"
+      - "§3 Code Organization"
+      - "§4 Data Architecture"
+      - "§5 Test Strategy"
+      - "§7 Error Handling & Resilience"
+      - "§11 Observability"
+    context_map:
+      - file: "docs/features/act-1-bridge/inbound.feature"
+        lines: "1-38"
+        note: "SYNC1.1–1.3"
+      - file: "docs/architecture/SAO.md"
+        lines: "71-99"
+        note: "Mint Teams From/Reply-To/Message-ID here — TEAM only consumes the map"
+      - file: "o365pop/accounts/graph_auth.py"
+        lines: "14-32"
+        note: "ensure_bearer only — do not reimplement MSAL"
+      - file: "o365pop/sync/tasks.py"
+        lines: "12-22"
+        note: "Extend AUTH stub sync_mailbox; do not create a second mailbox task"
+      - file: "o365pop/graph/port.py"
+        lines: "8-39"
+        note: "Implement list/get/send_mime; leave post_chat_message for TEAM if still stub"
+    do_not_do:
+      - "Do NOT use the Microsoft Graph SDK or taciturn2/microsoft-mcp clients"
+      - "Do NOT put a person's real SMTP address on tossed Teams From/Reply-To"
+      - "Do NOT call Graph from popd/smtpd"
+      - "Do NOT delete Graph messages"
+      - "Do NOT mock InboundTosser or MaildirStore in integration tests"
+      - "Do NOT implement outbound sendMail or Teams reply routing"
+      - "Do NOT write a custom POP server"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/SYNC_IMPLEMENTATION_PLAN.md"
+
+  S4:
+    title: "POP Twisted mailbox for Entourage"
+    github_issue: null
+    parallel_group: D
+    skeleton_commit: "e239febb9c5fed238d3c42b852f2db8e8800ec9d"
+    codebase_footprint:
+      - o365pop/popd/mailbox.py
+      - o365pop/popd/service.py
+      - o365pop/cli.py
+      - pyproject.toml
+      - tests/integration/test_pop_retrieve.py
+      - tests/integration/test_pop_auth.py
+      - tests/integration/test_pop_dele_local_only.py
+    checkpoint:
+      command: "pytest tests/integration/test_pop_retrieve.py tests/integration/test_pop_auth.py tests/integration/test_pop_dele_local_only.py -x"
+      expected_exit_code: 0
+    dependencies: [S3]
+    sao_sections:
+      - "§1 Application Blocks"
+      - "§2 Integration & API Design"
+      - "§4 Data Architecture"
+      - "§8 Infrastructure"
+      - "§11 Observability"
+      - "§13 Security"
+    context_map:
+      - file: "docs/features/act-1-bridge/pop.feature"
+        lines: "1-32"
+        note: "POP1.1–1.3"
+      - file: "docs/architecture/SAO.md"
+        lines: "101-105"
+        note: "Twisted twisted.mail.pop3; no STLS/APOP"
+      - file: "o365pop/mailstore/maildir.py"
+        lines: "1-40"
+        note: "MaildirStore — POP reads this; do not invent a second store"
+      - file: "o365pop/accounts/store.py"
+        lines: "1-40"
+        note: "Local USER/PASS — not the Microsoft password"
+      - file: "o365pop/cli.py"
+        lines: "19-41"
+        note: "Wire popd verb; leave smtpd stub"
+    do_not_do:
+      - "Do NOT write a custom asyncio POP server"
+      - "Do NOT import graph from popd"
+      - "Do NOT enable TLS/STLS/APOP/XOAUTH2"
+      - "Do NOT delete Graph rows or call Graph on DELE"
+      - "Do NOT delete TossedMessage on DELE"
+      - "Do NOT log the mailbox password"
+      - "Do NOT bind 0.0.0.0 in tests (use 127.0.0.1)"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/POP_IMPLEMENTATION_PLAN.md"
+
+  S5:
+    title: "SMTP aiosmtpd spool and sendMail scanner"
+    github_issue: null
+    parallel_group: E
+    skeleton_commit: "526958312d1e0973ffc192ceb4f4cffb6466ee26"
+    codebase_footprint:
+      - o365pop/mailstore/spool.py
+      - o365pop/smtpd/handler.py
+      - o365pop/smtpd/service.py
+      - o365pop/tosser/outbound_scanner.py
+      - o365pop/sync/tasks.py
+      - o365pop/celery_app.py
+      - o365pop/cli.py
+      - o365pop/graph/port.py
+      - o365pop/graph/file_adapter.py
+      - o365pop/graph/http_adapter.py
+      - pyproject.toml
+      - tests/integration/test_smtp_spool.py
+      - tests/integration/test_outbound_send.py
+      - tests/integration/test_outbound_send_fail.py
+    checkpoint:
+      command: "pytest tests/integration/test_smtp_spool.py tests/integration/test_outbound_send.py tests/integration/test_outbound_send_fail.py -x"
+      expected_exit_code: 0
+    dependencies: [S4]
+    sao_sections:
+      - "§1 Application Blocks"
+      - "§2 Integration & API Design"
+      - "§4 Data Architecture"
+      - "§7 Error Handling & Resilience"
+      - "§11 Observability"
+      - "§13 Security"
+    context_map:
+      - file: "docs/features/act-1-bridge/smtp.feature"
+        lines: "1-36"
+        note: "SMTP1.1, SEND1.1–1.2"
+      - file: "o365pop/graph/port.py"
+        lines: "33-39"
+        note: "Implement send_mime; do not implement post_chat_message here"
+      - file: "o365pop/sync/tasks.py"
+        lines: "25-32"
+        note: "Add scan_outbound_spool; do not fold send into sync_mailbox"
+      - file: "o365pop/tosser/outbound_scanner.py"
+        lines: "16-30"
+        note: "All successful scans are sendMail until TEAM inserts the router"
+      - file: "o365pop/cli.py"
+        lines: "19-41"
+        note: "Wire smtpd verb"
+    do_not_do:
+      - "Do NOT import graph from smtpd"
+      - "Do NOT enable STARTTLS or XOAUTH2"
+      - "Do NOT implement Teams routing here (TEAM1.*) — all successful scans are sendMail"
+      - "Do NOT post chat messages"
+      - "Do NOT log full MIME bodies (log size + subject only)"
+      - "Do NOT use the Microsoft password for AUTH LOGIN"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/SMTP_IMPLEMENTATION_PLAN.md"
+
+  S6:
+    title: "TEAM Reply map — chat post not sendMail"
+    github_issue: null
+    parallel_group: F
+    skeleton_commit: "19710c83dfd7aa96da81eb4717fd888efa2b2ed0"
+    codebase_footprint:
+      - o365pop/tosser/reply_text.py
+      - o365pop/tosser/outbound_router.py
+      - o365pop/tosser/outbound_scanner.py
+      - o365pop/graph/port.py
+      - o365pop/graph/file_adapter.py
+      - o365pop/graph/http_adapter.py
+      - tests/unit/test_outbound_router.py
+      - tests/unit/test_reply_text.py
+      - tests/integration/test_teams_reply_in_reply_to.py
+      - tests/integration/test_teams_reply_to_address.py
+      - tests/integration/test_teams_reply_ordinary_mail.py
+      - tests/integration/test_teams_map_miss.py
+    checkpoint:
+      command: "pytest tests/unit/test_outbound_router.py tests/unit/test_reply_text.py tests/integration/test_teams_reply_in_reply_to.py tests/integration/test_teams_reply_to_address.py tests/integration/test_teams_reply_ordinary_mail.py tests/integration/test_teams_map_miss.py -x"
+      expected_exit_code: 0
+    dependencies: [S5]
+    sao_sections:
+      - "§2 Integration & API Design"
+      - "§4 Data Architecture"
+      - "§7 Error Handling & Resilience"
+      - "§11 Observability"
+    context_map:
+      - file: "docs/features/act-1-bridge/teams.feature"
+        lines: "1-39"
+        note: "TEAM1.1–1.4"
+      - file: "docs/architecture/SAO.md"
+        lines: "90-95"
+        note: "Authoritative route order and fail-closed"
+      - file: "o365pop/tosser/mime_factory.py"
+        lines: "1-37"
+        note: "Mint contract — do not change From to a real address"
+      - file: "o365pop/tosser/outbound_scanner.py"
+        lines: "16-30"
+        note: "Insert router here; do not add a second scanner"
+      - file: "o365pop/graph/port.py"
+        lines: "41-48"
+        note: "Implement post_chat_message"
+    do_not_do:
+      - "Do NOT sendMail a message that maps to a Teams chat"
+      - "Do NOT sendMail any @o365pop.local address"
+      - "Do NOT put a real SMTP address on tossed Teams From/Reply-To"
+      - "Do NOT implement routing inside smtpd"
+      - "Do NOT post the full quoted Entourage history if the top part extracts cleanly"
+      - "Do NOT mock OutboundRouter in integration tests"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/TEAM_IMPLEMENTATION_PLAN.md"
+
+  S7:
+    title: "DEP LibreELEC bind policy and compose"
+    github_issue: null
+    parallel_group: G
+    skeleton_commit: "a9a609a6b5e02481d46ecb69206488b4efe03677"
+    codebase_footprint:
+      - o365pop/config.py
+      - o365pop/popd/service.py
+      - o365pop/smtpd/service.py
+      - deploy/Dockerfile
+      - deploy/docker-compose.yml
+      - deploy/libreelec/README.md
+      - tests/unit/test_bind_config.py
+    checkpoint:
+      command: "pytest tests/unit/test_bind_config.py -x"
+      expected_exit_code: 0
+    dependencies: [S6]
+    sao_sections:
+      - "§8 Infrastructure"
+      - "§10 Release & Rollback"
+      - "§12 Config & Secrets"
+      - "§13 Security"
+      - "§14 Backup & Recovery"
+    context_map:
+      - file: "docs/features/act-1-bridge/deploy.feature"
+        lines: "1-13"
+        note: "DEP1.1"
+      - file: "docs/architecture/SAO.md"
+        lines: "247-253"
+        note: "host network, /storage/o365pop, WireGuard bind, no WAN"
+      - file: "o365pop/config.py"
+        lines: "117-126"
+        note: "Implement validate_bind; do not change load_settings defaults to 0.0.0.0"
+      - file: "o365pop/popd/service.py"
+        lines: "1-26"
+        note: "Listen using config bind — do not hardcode 0.0.0.0"
+      - file: "o365pop/smtpd/service.py"
+        lines: "1-22"
+        note: "Same bind rules as popd"
+    do_not_do:
+      - "Do NOT default listen to 0.0.0.0 when ALLOW_LAN is unset"
+      - "Do NOT bind 110/587 on the WAN NIC"
+      - "Do NOT put secrets in the image (.env is a volume)"
+      - "Do NOT add TLS to popd/smtpd"
+      - "Do NOT add Kubernetes/Helm"
+      - "Do NOT require live Graph in CI"
+    rollback_point: "git stash"
+    bpe01_plan: "docs/plans/DEP_IMPLEMENTATION_PLAN.md"
