@@ -3,8 +3,8 @@ iteration:
   doctrine_version: "2.0"
   created_at: "2026-09-05T16:54:00-04:00"
   branch: "iteration/20260905-mail-bridge"
-  github_milestone: null
-  pin03_blocked: "No git origin remote — GitHub Milestone/Issues deferred until a repo exists"
+  github_milestone: 1
+  github_repo: "petelind/o365pop"
 
 conflict_map:
   o365pop/sync/tasks.py: [S2, S3, S5]
@@ -40,7 +40,7 @@ drift_thresholds:
 scenarios:
   S1:
     title: "BOOT Scaffold package, Celery, SQLite, logging"
-    github_issue: null
+    github_issue: 1
     parallel_group: A
     already_implemented: true
     skeleton_commit: "d37776d026cdd51c1aa2874ae560fda273f6c683"
@@ -91,7 +91,7 @@ scenarios:
 
   S2:
     title: "AUTH Device-code login and token vault"
-    github_issue: null
+    github_issue: 2
     parallel_group: B
     skeleton_commit: "60543af86f018a67411e58d49d714e1671562745"
     codebase_footprint:
@@ -147,7 +147,7 @@ scenarios:
 
   S3:
     title: "SYNC Graph pull, tosser, and maildir"
-    github_issue: null
+    github_issue: 3
     parallel_group: C
     skeleton_commit: "3b1ac6b92bca079024162a1c6e40738713574425"
     codebase_footprint:
@@ -210,7 +210,7 @@ scenarios:
 
   S4:
     title: "POP Twisted mailbox for Entourage"
-    github_issue: null
+    github_issue: 4
     parallel_group: D
     skeleton_commit: "e239febb9c5fed238d3c42b852f2db8e8800ec9d"
     codebase_footprint:
@@ -261,7 +261,7 @@ scenarios:
 
   S5:
     title: "SMTP aiosmtpd spool and sendMail scanner"
-    github_issue: null
+    github_issue: 5
     parallel_group: E
     skeleton_commit: "526958312d1e0973ffc192ceb4f4cffb6466ee26"
     codebase_footprint:
@@ -318,7 +318,7 @@ scenarios:
 
   S6:
     title: "TEAM Reply map — chat post not sendMail"
-    github_issue: null
+    github_issue: 6
     parallel_group: F
     skeleton_commit: "19710c83dfd7aa96da81eb4717fd888efa2b2ed0"
     codebase_footprint:
@@ -371,7 +371,7 @@ scenarios:
 
   S7:
     title: "DEP LibreELEC bind policy and compose"
-    github_issue: null
+    github_issue: 7
     parallel_group: G
     skeleton_commit: "a9a609a6b5e02481d46ecb69206488b4efe03677"
     codebase_footprint:
