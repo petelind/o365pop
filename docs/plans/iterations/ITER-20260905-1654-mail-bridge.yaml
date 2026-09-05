@@ -430,7 +430,7 @@ scenarios:
     feature_file_paths:
       - docs/features/act-1-bridge/teams.feature
     system_dependencies: []
-    min_status: queued
+    min_status: done
     log_story_script:
       - {beat: branch, where: "OutboundRouter.route", trigger: teams_map_hit, must_include: ["route=teams_chat"]}
     log_tests:
