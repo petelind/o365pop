@@ -17,8 +17,10 @@ from o365pop.db import connect, init_schema
 from o365pop.graph.http_adapter import HttpGraphAdapter
 from o365pop.graph.port import GraphPort
 from o365pop.mailstore.maildir import MaildirStore
+from o365pop.mailstore.spool import SpoolStore
 from o365pop.sync.sessions import SyncSession, mark_completed, mark_failed, start_session
 from o365pop.tosser.inbound import InboundTosser
+from o365pop.tosser.outbound_scanner import OutboundScanner
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,27 @@ def scan_outbound_spool(self) -> dict:
     :return: Result dict. Example: ``{"status": "completed", "sent": 1}``
     """
     logger.info("sync.tasks.scan_outbound_spool | entry | task_id=%s", getattr(self.request, "id", None))
-    raise NotImplementedError()
+    settings = load_settings()
+    conn = connect(settings.db_path)
+    init_schema(conn)
+    return _run_outbound_scan(conn, settings)
+
+
+def _run_outbound_scan(conn: sqlite3.Connection, settings: Settings) -> dict:
+    """Bearer → sendMail each new spool file → completed counts.
+
+    :param conn: sqlite connection. Example: ``connect(path)``
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: Success dict. Example: ``{"status": "completed", "sent": 1}``
+    """
+    service = _resolve_auth_service(conn, settings)
+    token = service.ensure_bearer()
+    graph = _resolve_graph(settings, token)
+    spool = SpoolStore(settings.data_dir / "spool")
+    counts = OutboundScanner(conn, spool, graph).scan_once()
+    sent = int(counts["sent"])
+    logger.info("sync.tasks.scan_outbound_spool | exit | status=completed sent=%s", sent)
+    return {"status": "completed", "sent": sent}
 
 
 def _run_inbound_sync(conn: sqlite3.Connection, settings: Settings, session: SyncSession) -> dict:

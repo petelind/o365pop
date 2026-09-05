@@ -29,3 +29,15 @@ def test_module_level_celery_app_matches_name() -> None:
 
     assert celery_app.main == "o365pop"
     assert celery_app.conf.task_acks_late is True
+
+
+@pytest.mark.unit
+def test_celery_beat_includes_scan_outbound_spool() -> None:
+    """Beat runs scan_outbound_spool every SPOOL_SCAN_SECONDS.
+
+    :return: None
+    """
+    app = create_celery_app(broker_url="memory://", result_backend="cache+memory://")
+    entry = app.conf.beat_schedule["scan-outbound-spool"]
+    assert entry["task"] == "o365pop.sync.scan_outbound_spool"
+    assert entry["schedule"] == 30.0

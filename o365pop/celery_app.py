@@ -28,6 +28,7 @@ def create_celery_app(
     logger.info("celery_app.create_celery_app | entry | broker_set=%s", bool(broker))
     app = Celery("o365pop", broker=broker, backend=backend)
     poll_seconds = _env_positive_int("GRAPH_POLL_SECONDS", 120)
+    spool_seconds = _env_positive_int("SPOOL_SCAN_SECONDS", 30)
     app.conf.update(
         task_acks_late=True,
         worker_prefetch_multiplier=1,
@@ -42,14 +43,20 @@ def create_celery_app(
                 "task": "o365pop.sync.sync_mailbox",
                 "schedule": float(poll_seconds),
             },
+            "scan-outbound-spool": {
+                "task": "o365pop.sync.scan_outbound_spool",
+                "schedule": float(spool_seconds),
+            },
         },
     )
     logger.info(
-        "celery_app.create_celery_app | exit | name=%s acks_late=%s prefetch=%s beat=sync-mailbox interval=%s",
+        "celery_app.create_celery_app | exit | name=%s acks_late=%s prefetch=%s "
+        "beat=sync-mailbox,scan-outbound-spool interval=%s spool_interval=%s",
         app.main,
         app.conf.task_acks_late,
         app.conf.worker_prefetch_multiplier,
         poll_seconds,
+        spool_seconds,
     )
     return app
 
