@@ -37,7 +37,8 @@ There is no HTTP welcome page. Operator surface is the CLI plus `logs/app.log`.
 
 ## Documentation
 
-- [System Architecture Overview](docs/architecture/SAO.md) — §5 Test Strategy
+- [System Architecture Overview](docs/architecture/SAO.md)
+- [Modus operandi](docs/process/MODUS_OPERANDI.md) — Cursor ADE + delivery loop
 - [Phrase catalog](docs/features/CATALOG.md) · [Fixture catalog](tests/fixtures/CATALOG.md)
 - [Implementation index](docs/plans/O365POP_IMPLEMENTATION_PLAN.md)
 - [User journey](docs/features/user_journey.md)

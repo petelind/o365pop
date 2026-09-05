@@ -1,0 +1,14 @@
+---
+description: o365pop stack locks. Apply on every implementation change.
+alwaysApply: true
+---
+
+# o365pop stack locks
+
+- **No** Django, FastAPI, HTMX, Playwright, or Microsoft Graph SDK.
+- `popd` and `smtpd` must **not** import `o365pop.graph`.
+- POP/SMTP stay cleartext inside WireGuard. Do not require TLS. Do not bind 110/587 on the WAN NIC unless `ALLOW_LAN=1` is an explicit operator choice.
+- Local mailbox password ≠ Microsoft password. Never log tokens, passwords, device codes, or raw MIME.
+- Integration tests: real maildir, real daemons, FileGraphAdapter fixtures. No `unittest.mock` on domain services.
+- Live Graph is `@pytest.mark.live_graph` only — never part of `make test`.
+- Operator surface is `python -m o365pop` plus `logs/app.log`. Do not add a welcome HTTP app.

@@ -13,6 +13,15 @@ Key decisions:
 - POP/SMTP bind to the WireGuard address (optional LAN). Never the WAN NIC.
 - Device-code MSAL login; Fernet-encrypted tokens; local POP/SMTP password is not the Microsoft password.
 
+## Design Principles
+
+1. **Daemons never call Graph.** `popd` / `smtpd` only speak wire protocols against the filesystem message base.
+2. **Tosser never speaks POP/SMTP.** Celery owns pull, toss, scan, and reply routing.
+3. **One mailbox per deployment.** Single Graph account; single local POP/SMTP credential.
+4. **WireGuard is the crypto.** POP/SMTP stay 1998-cleartext on the tunnel bind, never the WAN NIC.
+5. **Honest Graph REST.** `httpx` + MSAL only — no Graph SDK, no taciturn2 client reuse.
+6. **Prove with real bytes.** Integration tests use real maildir, real daemons, and FileGraphAdapter fixtures — no service mocks.
+
 ## 1. Application Blocks
 
 ### Bounded contexts
@@ -291,6 +300,7 @@ Back up `/storage/o365pop/data` (SQLite + tokens) and maildir. Spool `failed/` i
 ## 16. Documentation Strategy
 
 - This SAO is the architecture lock
+- Process: `docs/process/MODUS_OPERANDI.md`; ADE: `.cursor/rules/_ai-context.mdc` (Cursor)
 - Feature files in `docs/features/act-*/`; phrase map in `docs/features/CATALOG.md`
 - Fixture catalog in `tests/fixtures/CATALOG.md`
 - Plan in `docs/plans/O365POP_IMPLEMENTATION_PLAN.md`

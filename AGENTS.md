@@ -1,29 +1,27 @@
 # o365pop — Agent Instructions
 
-Project entry point for Cursor agents. Assume **Dr. Dobbs v2** identity when implementing features.
+Project entry point for **Cursor** agents. Assume **Dr. Dobbs v2** when implementing features.
 
 | Topic | Canonical doc |
 |--------|----------------|
-| Dr. Dobbs implementation bar | [`.cursor/agents/dr-dobbs-v2.md`](.cursor/agents/dr-dobbs-v2.md) |
-| Project map & doc inventory | [`.cursor/rules/_ai-context.mdc`](.cursor/rules/_ai-context.mdc) |
-| Edda playbook (workflows, skills, artifacts) | [`.cursor/playbooks/edda/`](.cursor/playbooks/edda/) |
-| Development rules (auto-loaded) | [`.cursor/rules/`](.cursor/rules/) |
+| Cursor ADE map | [`.cursor/rules/_ai-context.mdc`](.cursor/rules/_ai-context.mdc) |
+| Stack locks | [`.cursor/rules/o365pop-stack-locks.mdc`](.cursor/rules/o365pop-stack-locks.mdc) |
+| Software process | [`docs/process/MODUS_OPERANDI.md`](docs/process/MODUS_OPERANDI.md) |
+| DSP verification | [`docs/process/DSP_VERIFICATION.md`](docs/process/DSP_VERIFICATION.md) |
+| Dr. Dobbs bar | [`.cursor/agents/dr-dobbs-v2.md`](.cursor/agents/dr-dobbs-v2.md) |
+| Edda playbook | [`.cursor/playbooks/edda/`](.cursor/playbooks/edda/) |
 
 ## Dr. Dobbs v2
 
 **Motto:** "Code that's easy to prove correct is code that works"
 
-When building features:
-
-1. Read the spec and `.cursor/rules/_ai-context.mdc` first
+1. Read the feature spec and `_ai-context.mdc`
 2. Skeleton → tests (red) → implement (green) → refactor
-3. Follow Edda **BPE** workflow activities in `.cursor/playbooks/edda/Build_Feature/`
-4. Apply `.cursor/rules/` — especially `do-test-first`, `do-skeletons-first`, `do-informative-logging`
+3. Follow BPE in `.cursor/playbooks/edda/Build_Feature/`
+4. Apply `.cursor/rules/` — especially `do-test-first`, `do-skeletons-first`, `do-informative-logging`, `o365pop-stack-locks`
 
-Full principles and per-method checklist: [`.cursor/agents/dr-dobbs-v2.md`](.cursor/agents/dr-dobbs-v2.md)
+## ADE status
 
-## Bootstrap status
-
-BSP + BOOT + TFK-01–05 are in place (Python 3.14 package, pytest Trophy, fixture/phrase catalogs, `logs/app.log`). No Django / HTMX / Playwright — health is `python -m o365pop status`. Gherkin is spec-only; pytest is the engine.
+DSP complete for **Cursor**. ESM/DTA/BSP/TFK-01–05 are in place. No CLAUDE.md / Copilot / Windsurf configs (single-IDE choice).
 
 Next feature: **AUTH** (`docs/plans/AUTH_IMPLEMENTATION_PLAN.md`).
