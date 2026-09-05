@@ -10,7 +10,9 @@ from typing import Any
 
 from o365pop.graph.port import GraphPort
 from o365pop.mailstore.maildir import MaildirStore
-from o365pop.tosser.index import TossedMessage, already_tossed, record_tossed
+from o365pop.tosser.chat_address import encode_chat_id, reply_address
+from o365pop.tosser.index import TossedMessage, already_tossed, record_tossed, upsert_chat_map
+from o365pop.tosser.mime_factory import teams_to_rfc822
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +89,35 @@ class InboundTosser:
         :param message: Chat line. Example: ``{"chat_id": "19:general", "body": "Ship it"}``
         :return: True if written. Example: ``True``
         """
-        logger.info("InboundTosser.toss_teams | entry | chat_id=%s", message.get("chat_id"))
-        raise NotImplementedError()
+        chat_id = str(message.get("chat_id") or "")
+        graph_id = str(message.get("message_id") or message.get("id") or "")
+        logger.info("InboundTosser.toss_teams | entry | chat_id=%s", chat_id)
+        if not chat_id or not graph_id or already_tossed(self._conn, graph_id):
+            logger.info("InboundTosser.toss_teams | branch | skipped_dup=true graph_id=%s", graph_id)
+            return False
+        rfc = teams_to_rfc822(
+            chat_id=chat_id,
+            graph_message_id=graph_id,
+            from_name=str(message.get("from_name") or "Teams"),
+            body=str(message.get("body") or ""),
+            chat_subject=str(message.get("chat_subject") or chat_id),
+        )
+        uidl = f"uid-teams-{graph_id}"
+        address = reply_address(chat_id)
+        self._maildir.add(rfc.as_bytes(), uidl)
+        record_tossed(
+            self._conn,
+            TossedMessage(
+                graph_id=graph_id,
+                source="teams",
+                message_id=str(rfc["Message-ID"]),
+                chat_id=chat_id,
+                uidl=uidl,
+            ),
+        )
+        upsert_chat_map(self._conn, chat_id, address, encode_chat_id(chat_id))
+        logger.info("InboundTosser.toss_teams | exit | tossed=true chat_id=%s", chat_id)
+        return True
 
 
 def subject_of(rfc822: bytes) -> str:
