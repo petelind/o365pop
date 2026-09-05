@@ -20,17 +20,20 @@ POP_PORT = 11110
 _RFC822 = b"From: tester@example.com\r\nSubject: Q3 close\r\n\r\nBody line\r\n"
 
 
-def _run_popd_process(bind: str, port: int, maildir: str, db_path: str) -> None:
+def _run_popd_process(bind: str, port: int, maildir: str, db_path: str, log_dir: str) -> None:
     """Child process: block on Twisted reactor.
 
     :param bind: Listen address. Example: ``"127.0.0.1"``
     :param port: Listen port. Example: ``11110``
     :param maildir: Maildir path. Example: ``"/tmp/maildir"``
     :param db_path: sqlite path. Example: ``"/tmp/o365pop.sqlite3"``
+    :param log_dir: Child app.log directory. Example: ``"/tmp/logs"``
     :return: None
     """
+    from o365pop.logging_setup import configure_logging
     from o365pop.popd.service import run_popd
 
+    configure_logging(Path(log_dir))
     run_popd(bind=bind, port=port, maildir=Path(maildir), db_path=Path(db_path))
 
 
@@ -81,7 +84,7 @@ def start_popd(sandbox: MailboxSandbox, port: int) -> Process:
     """
     proc = Process(
         target=_run_popd_process,
-        args=(POP_HOST, port, str(sandbox.maildir), str(sandbox.db_path)),
+        args=(POP_HOST, port, str(sandbox.maildir), str(sandbox.db_path), str(sandbox.log_dir)),
         daemon=True,
     )
     proc.start()
