@@ -145,7 +145,14 @@ Single `MailboxAccount` row in v1. POP UIDL = stable hash of Graph id (or genera
 
 Pointer: [`docs/architecture/test-architecture.md`](test-architecture.md). Catalogs: [`docs/features/CATALOG.md`](../features/CATALOG.md), [`tests/fixtures/CATALOG.md`](../../tests/fixtures/CATALOG.md).
 
-TFK-01 fleshes this section. Edda’s default Trophy (behave-django + Playwright) does **not** apply: there is no web UI (SAO §1). Gherkin in `docs/features/` is the requirements document; pytest integration tests are the executable engine. SAO §17 (agent lanes) is **N/A** — no ScriptedLLM, no `llm_scripts/`, no `make test-agent-proof`.
+TFK-01 re-run 2026-09-05 against Edda v73. Stock Trophy (behave-django + Playwright) does **not** apply: there is no web UI (SAO §1). Gherkin in `docs/features/` is the requirements document; pytest integration tests are the executable engine. SAO §17 (agent lanes) is **N/A** — no ScriptedLLM, no `llm_scripts/`, no `make test-agent-proof`.
+
+| Stock v73 | o365pop |
+|---|---|
+| behave-django AT (`make test-at`) | Skip — phrases catalogued, proven by pytest |
+| Playwright E2E (`make test-e2e`) | Skip — Entourage is the client |
+| Agent lanes 1–4 | Skip — SAO §17 N/A |
+| FactoryBoy / AutoFixture | Skip — FileGraphAdapter + JSON presets |
 
 ### Test Trophy (daemon-adjusted)
 
@@ -172,7 +179,7 @@ TFK-01 fleshes this section. Edda’s default Trophy (behave-django + Playwright
 | `make test-log-story` | `pytest -m log_story` — caplog beats via `assert_log_story` |
 | `make test-live-graph` | `pytest -m live_graph` — operator-only |
 
-Default collection **excludes** `live_graph`. Empty `integration/` is allowed until AUTH/SYNC land.
+Default collection **excludes** `live_graph`. `make test-at` / `make test-e2e` / `make test-agent-*` are documented no-ops (TFK-05).
 
 ### Coverage policy
 

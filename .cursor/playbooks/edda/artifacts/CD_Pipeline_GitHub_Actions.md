@@ -1,8 +1,16 @@
 # CD Pipeline (GitHub Actions)
 
-**Type**: Code  
-**Required**: Yes  
+**Type**: Document
+**Required**: No
 **Produced by**: Build CD Pipeline
+
+# CD Pipeline (GitHub Actions)
+
+**Artifact ID**: 13
+**Type**: Code
+**Required**: True
+
+## Description
 
 # ==============================================================================
 # Artifact: CD Pipeline — GitHub Actions
@@ -156,3 +164,53 @@ jobs:
 
       - name: Final status
         run: make pipeline-status
+
+# ==============================================================================
+# Optional pre-swap job — agent contract cert (lane 3)
+# ==============================================================================
+#
+# Append when SAO §17 applies. Gated on repository variable AGENT_EVAL_ENABLED.
+# Default cd.yml above is UNCHANGED for agent-less projects.
+#
+# Insert after smoke-test job; wire switch job to `needs: [smoke-test, agent-contract-cert]`
+# only when this job is present. When AGENT_EVAL_ENABLED is unset, agent-contract-cert
+# is skipped and switch may keep `needs: smoke-test` only.
+
+```yaml
+  agent-contract-cert:
+    needs: smoke-test
+    if: vars.AGENT_EVAL_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: make provision
+
+      - name: Lane 3 — live contract eval (temp=0, not ScriptedLLM)
+        env:
+          AGENTS_ENABLED: true
+          LIVE_LLM_API_KEY: ${{ secrets.LIVE_LLM_API_KEY }}
+          STAGING_BASE_URL: ${{ vars.STAGING_URL }}
+        run: make test-agent-eval
+
+  switch:
+    needs: [smoke-test, agent-contract-cert]
+    # When agent cert disabled, use: needs: smoke-test
+```
+
+**Notes:**
+- Lane 3 asserts contract bounds only — see artifact 56 Part 3.4.
+- Failure here is a promotion signal, not a default merge blocker.
+- Lane 4 (`make test-agent-quality`) remains on `agent-eval.yml` / manual promotion — not in CD swap path by default.

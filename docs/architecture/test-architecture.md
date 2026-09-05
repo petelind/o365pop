@@ -10,6 +10,7 @@ This file exists so TFK/BPE agents can find the finished Test Strategy without h
 | Fixture catalog (TFK-04) | [`tests/fixtures/CATALOG.md`](../../tests/fixtures/CATALOG.md) |
 | Log-story helper (TFK-02) | `tests/support/log_story.py` → `assert_log_story` |
 | Merge gate | `make test` (`pytest tests/ -m "not live_graph"`) |
+| TFK run record | [`docs/process/TFK_VERIFICATION.md`](../process/TFK_VERIFICATION.md) |
 
 **Skipped from stock TFK (documented drift):**
 

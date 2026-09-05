@@ -11,7 +11,7 @@ alwaysApply: true
 
 ## What Is o365pop
 
-Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365. WireGuard is the security layer. Celery syncs Graph and tosses mail; `popd`/`smtpd` only speak the wire protocols.
+Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. `popd` / `smtpd` only speak the wire protocols.
 
 ---
 
@@ -27,7 +27,7 @@ Celery worker/beat ---+--> tosser --> graph (httpx) --> Microsoft 365
 - **Tech stack:** Python 3.14 package, SQLite, Celery + Redis, httpx + MSAL, aiosmtpd, Twisted POP3, maildir
 - **Key decisions:** Fido tosser; daemons never call Graph; cleartext POP/SMTP on the WG bind; one mailbox; no web UI
 - **Data:** `MailboxAccount`, `SyncSession`, `TossedMessage`, `ChatMap`; maildir inbound; spool outbound
-- **Full details:** `docs/architecture/SAO.md` (Design Principles + §§1–16)
+- **Full details:** `docs/architecture/SAO.md` (Design Principles + §§1–16). SAO §17 (agents) is N/A.
 
 ```
 o365pop/{accounts,graph,tosser,mailstore,popd,smtpd,sync}
@@ -49,8 +49,10 @@ docs/{architecture,features,plans,ux,process}
 | Phrase catalog | `docs/features/CATALOG.md` | Gherkin → pytest |
 | Fixture catalog | `tests/fixtures/CATALOG.md` | Graph/MIME/preset cases |
 | Test strategy | `docs/architecture/SAO.md` §5 | Before writing tests |
+| Test architecture pointer | `docs/architecture/test-architecture.md` | TFK navigation |
 | Software process | `docs/process/MODUS_OPERANDI.md` | How we work in Cursor |
 | DSP checklist | `docs/process/DSP_VERIFICATION.md` | ADE verification |
+| TFK checklist | `docs/process/TFK_VERIFICATION.md` | Harness verification |
 | Program index | `docs/plans/O365POP_IMPLEMENTATION_PLAN.md` | Order and checkpoints |
 | Feature plans | `docs/plans/{BOOT,AUTH,SYNC,POP,SMTP,TEAM,DEP}_IMPLEMENTATION_PLAN.md` | BPE-01 per feature |
 | Clarifications | `docs/plans/O365POP_Clarifications.md` | Locked defaults |
@@ -58,32 +60,35 @@ docs/{architecture,features,plans,ux,process}
 | Process playbook | `.cursor/playbooks/edda/` | When running a workflow |
 | Dr. Dobbs agent | `.cursor/agents/dr-dobbs-v2.md` | Implementing features |
 | Agent entry | `AGENTS.md` | First read for any agent session |
+| Iteration protocol | `.cursor/rules/min-iteration.mdc` | Edda v73 MIN (Cursor ADE — no CLAUDE.md) |
 
 ---
 
 ## Available Workflows
 
-Playbook: FeatureFactory v14 (`.cursor/playbooks/edda/`). TFK is **not** in this export; SAO §5 records the Edda v73 application.
+Playbook: **Edda v73** (`.cursor/playbooks/edda/`). Folders are abbreviations (`BPE/`, `MIN/`); activities are `{ABBR}-NN-Name.md`.
 
 | Workflow | Purpose | Activities | When to Use |
 |----------|---------|------------|-------------|
 | ESM | Envision the System | 7 | Defining what to build |
-| DTA | Define Architecture | 18 | Architectural decisions |
+| DTA | Define Architecture | 20 | Architectural decisions |
+| DSP | Deploy Software Process | 6 | This ADE (Cursor) |
 | EST | Estimate the Project | 8 | Sizing (optional) |
 | DCI | Design & Deploy Cloud Infra | 7 | N/A for v1 LibreELEC |
 | DCD | Design & Deploy CICD | 7 | Richer GH Actions later |
-| DSP | Deploy Software Process | 6 | This ADE (Cursor) |
 | BSP | Bootstrap Project | 8 | Package scaffold (done) |
-| BPE | Build Feature | 8 | **Primary delivery workflow** |
-| PIN | Plan Iteration | 4 | Sprint contract |
-| MIN | Manage Iteration | 4 | Execute / close sprint |
-| TFK | Test Automation Framework | 9 (v73) | Harness / catalogs (done 01–05) |
+| BPE | Build Feature | 9 | **Primary delivery workflow** |
+| PIN | Plan Iteration | 5 | Sprint contract |
+| MIN | Manage Iteration | 7 | TL dispatch / gate / UAT / close |
+| TFK | Test Automation Framework | 9 | Harness / catalogs |
+
+MIN runs from `.cursor/rules/min-iteration.mdc` (TL / dr-dobbs / Saga). DSP-04 is Cursor only — do not generate `CLAUDE.md`.
 
 ---
 
 ## Available Skills
 
-Location: `.cursor/playbooks/edda/skills/`. Use when the activity matches; **ignore Django/HTMX/Playwright/K8s/CDK** unless SAO changes.
+Location: `.cursor/playbooks/edda/skills/`. Use when the activity matches.
 
 | Skill | Use when |
 |-------|----------|
@@ -91,14 +96,18 @@ Location: `.cursor/playbooks/edda/skills/`. Use when the activity matches; **ign
 | Python Logging Patterns | `logs/app.log` beats |
 | pytest Runner Configuration | pytest.ini / markers |
 | pytest Continuous Testing | `make test-watch` |
-| pytest Fixture Management for E2E Tests | Patterns only — no Playwright |
+| Pytest Log Story Assertions | `assert_log_story` |
+| Test Trophy Architecture | SAO §5 / TFK-01 |
+| Gherkin Step Library Patterns | Phrase catalog (no behave) |
+| Write Gherkin Feature Files | ESM-05 / new scenarios |
 | GitHub Issue Operations | PIN/MIN issues |
 | GitHub Milestone Operations | Iteration milestones |
 | GitHub Actions Patterns | CI workflow edits |
 | Lessons Learned Writing | Close feature / iteration |
 | Drift Detection and Classification | Plan vs code |
 | Generate Estimation XLS | EST |
-| Django / HTMX / Playwright / CDK / K8s / Claude Token | **N/A** this stack |
+
+**N/A this stack** (do not apply unless SAO changes): Behave-Django BDD Runner; Playwright Semantic Naming; pytest Fixture Management for E2E Tests; Agent Integration Proof Patterns; Agent Task Eval; AutoFixture and FactoryBoy Patterns; Django Backend / Django Logging / Django HTMX / HTMX Frontend Logging / Bootstrap 5 Design System; AWS CDK; AWS Elastic Beanstalk Blue/Green; K8s in EKS; Claude Token Tracking; GitLab Issue Operations.
 
 ---
 
@@ -106,15 +115,21 @@ Location: `.cursor/playbooks/edda/skills/`. Use when the activity matches; **ign
 
 Location: `.cursor/playbooks/edda/artifacts/`.
 
-| Template | Purpose |
-|----------|---------|
-| System Architecture Overview Template | SAO shape |
-| User Journey / Feature File / IA Guidelines Templates | ESM |
-| Implementation Plan / Definition of Done | BPE |
-| Makefile Template | BSP (adapted; no Django) |
-| WindsurfCursor Rules Template | This file’s shape |
-| CLAUDE.md / Copilot Instructions | Other ADEs — not generated (Cursor only) |
-| CI/CD / Helm / CDK templates | Later / N/A LibreELEC |
+| Template | Workflow | Purpose |
+|----------|----------|---------|
+| System Architecture Overview Template | DTA | SAO shape |
+| SAO.md Test Strategy | TFK-01 | Trophy section (daemon-adjusted in SAO §5) |
+| User Journey / Feature File / IA Guidelines | ESM | Specs (no HTML mockups) |
+| Screen Flow Dialogue Map | ESM | Operator/client mermaid, not GUI |
+| Implementation Plan / Definition of Done | BPE | Feature plans |
+| Makefile Template | BSP | Already applied (no Django) |
+| Windsurf/Cursor Rules Template | DSP | This file’s shape |
+| Step Library Catalog / Fixture Library Catalog | TFK | Phrase + fixture maps |
+| CI Pipeline GitHub Actions | TFK-05 / DCD | `.github/workflows/ci.yml` |
+| Iteration Lessons Learned / Release Notes / Bug Report | MIN | Close / UAT |
+| Change Reconciliation Document | BPE-08 | CR |
+
+**N/A this stack:** CLAUDE.md / Copilot Instructions (other ADEs); Behave Configuration; E2E Test Configuration; HTML Mockups; Helm / CDK / Infra / EB / MCP FastMCP / AI Agent Reference Architecture.
 
 ---
 
@@ -139,6 +154,9 @@ Do not copy rule bodies here. Auto-loaded slugs that matter most:
 - Test-first pytest; no mocks in integration; log-story same commit
 - Logging: `{logger} | {Class.method} | {beat} | key=value` — never secrets
 - Skeletons + Sphinx examples before implementation
+- Stack locks: `.cursor/rules/o365pop-stack-locks.mdc`
+
+SAO §17 does not apply — no agent-lane conventions, no `assert_agent_story`, no `llm_scripts/`.
 
 ---
 
@@ -149,7 +167,7 @@ Do not copy rule bodies here. Auto-loaded slugs that matter most:
 3. Skeleton: package module + docstrings + `NotImplementedError`
 4. Red: pytest in `tests/unit/` or `tests/integration/` (FileGraphAdapter / real daemons)
 5. Green: minimum code + INFO beats
-6. Update phrase/fixture catalogs if the scenario is new
+6. Update phrase/fixture catalogs if the scenario is new (TFK-07)
 7. Checkpoint command from the plan; conventional commit
 
 No Django models/views/templates. No frontend slice.
@@ -161,9 +179,11 @@ No Django models/views/templates. No frontend slice.
 ```bash
 make provision          # Python 3.14 venv, deps, SQLite schema
 make test               # pytest -m "not live_graph"
+make test-unit          # pytest tests/unit/
+make test-integration   # pytest tests/integration/
 make test-log-story     # caplog beat proofs
 make status             # CLI health (no HTTP server)
-make login              # AUTH — stub until that feature
+make login              # device-code Microsoft login
 ```
 
 Copy `.env.example` to `.env`. Never commit `.env`, keys, or `*.sqlite3`.

@@ -1,6 +1,6 @@
 # Dr. Dobbs v2 — Cautious developer agent guide
 
-**Source:** Mimir FeatureFactory playbook agent *Dr. Dobbs v2* (`.cursor/playbooks/edda/agents/Dr_Dobbs_v2.md`). Refresh from Mimir export when the playbook updates.
+**Source:** Mimir Edda v73 agent *Dr. Dobbs v2* (`.cursor/playbooks/edda/agents/Dr_Dobbs_v2.md`). Refresh from Mimir export when the playbook updates.
 
 **Motto:** "Code that's easy to prove correct is code that works"
 

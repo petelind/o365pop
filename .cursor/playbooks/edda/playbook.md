@@ -1,25 +1,28 @@
-# FeatureFactory
+# Edda
 
 **Playbook ID**: 3
-**Version**: 14.0 (released)
+**Version**: 73.0 (released)
 **Category**: development
 **Visibility**: public
-**Export Date**: 2026-09-05 20:19 UTC
-**Total Workflows**: 10
-**Total Activities**: 77
+**Export Date**: 2026-09-05 21:29 UTC
+**Total Workflows**: 11
+**Total Activities**: 93
 
 ## Workflows
 
-- **Envision the System** (order 1)
-- **Define Architecture** (order 2)
-- **Deploy Software Process** (order 3)
-- **Estimate the Project** (order 4)
-- **Design & Deploy Cloud Infra** (order 5)
-- **Design & Deploy CICD** (order 6)
-- **Bootstrap Project** (order 7)
-- **Build Feature** (order 8)
-- **Plan Iteration** (order 9)
-- **Manage Iteration** (order 10)
+| Abbr | Folder | Workflow |
+|------|--------|----------|
+| ESM | `ESM/` | Envision the System |
+| DTA | `DTA/` | Define Architecture |
+| DSP | `DSP/` | Deploy Software Process |
+| EST | `EST/` | Estimate the Project |
+| DCI | `DCI/` | Design & Deploy Cloud Infra |
+| DCD | `DCD/` | Design & Deploy CICD |
+| BSP | `BSP/` | Bootstrap Project |
+| BPE | `BPE/` | Build Feature |
+| PIN | `PIN/` | Plan Iteration |
+| MIN | `MIN/` | Manage Iteration |
+| TFK | `TFK/` | Test Automation Framework |
 
 ## Directory Layout
 
@@ -27,4 +30,5 @@
 - `agents/` — agent definitions
 - `skills/` — skill library
 - `artifacts/` — artifact catalog
-- `{workflow}/` — per-workflow activity markdown (import via MCP)
+- `{ABBR}/` — workflow folders (ESM, DTA, DSP, EST, DCI, DCD, BSP, BPE, PIN, MIN, TFK)
+- `{ABBR}/{ABBR}-NN-Activity_Name.md` — activities (e.g. `BPE/BPE-01-Plan_Feature.md`)

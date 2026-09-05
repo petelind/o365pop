@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 
 Font Awesome Pro Icons Required - Every action button/link needs an icon; if not specified, you shall propose 3 options

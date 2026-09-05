@@ -1,6 +1,6 @@
 # pytest Runner Configuration
 
-**Capability**: TEST_FRAMEWORK  
+**Capability**: TEST_FRAMEWORK
 **Stack**: pytest
 
 # Skill: pytest Runner Configuration
@@ -25,7 +25,7 @@ python_classes = Test*
 python_functions = test_*
 testpaths = tests
 
-addopts = 
+addopts =
     -v
     --strict-markers
     --tb=short
@@ -45,6 +45,9 @@ markers =
     e2e: End-to-end tests (full user journeys)
     slow: Slow running tests
     django_db: Tests that require database access
+    agent_proof: Lane 1 PRF control-plane proofs (ScriptedLLM + assert_agent_story)
+    quality: Lane 4 TASK-* golden task eval (live LLM, not PR merge gate)
+    live_llm: Requires live LLM provider — skip in default PR CI
 ```
 
 ### Pattern 2: Running Tests
@@ -73,6 +76,12 @@ pytest -m unit
 
 # Run only integration tests
 pytest -m integration
+
+# Run agent control-plane proofs (lane 1 — when AGENTS_ENABLED)
+pytest -m agent_proof tests/integration/agent/
+
+# Run TASK-* quality eval (lane 4 — nightly / manual only)
+pytest -m "quality and live_llm" tests/
 
 # Run all except slow tests
 pytest -m "not slow"
@@ -124,7 +133,7 @@ def authenticated_client(client, test_user):
 
 ```makefile
 # Makefile
-.PHONY: test test-unit test-integration test-e2e test-cov
+.PHONY: test test-unit test-integration test-e2e test-cov test-agent-proof test-agent-quality
 
 test:
 	pytest tests/ -v
@@ -138,6 +147,20 @@ test-integration:
 test-e2e:
 	pytest tests/e2e/ -v -m e2e
 
+test-agent-proof:
+ifeq ($(AGENTS_ENABLED),true)
+	pytest tests/integration/agent/ -v -m agent_proof
+else
+	@echo "skip: agents N/A (SAO §17)"
+endif
+
+test-agent-quality:
+ifeq ($(AGENTS_ENABLED),true)
+	pytest tests/ -v -m quality
+else
+	@echo "skip: agents N/A (SAO §17)"
+endif
+
 test-cov:
 	pytest tests/ --cov=methodology --cov-report=html --cov-report=term
 
@@ -147,6 +170,21 @@ test-watch:
 test-failed:
 	pytest tests/ --lf -v
 ```
+
+## Agent pytest markers (when SAO §17 applies)
+
+| Marker | Lane | Default PR CI | Requires |
+|--------|------|---------------|----------|
+| `agent_proof` | 1 | When `AGENTS_ENABLED=true` | CAP-004 ScriptedLLM, `tests/support/agent_story.py` |
+| `quality` | 4 | No — nightly / promotion | Golden task fixtures under `tests/fixtures/agent_tasks/` |
+| `live_llm` | 3–4 | No | Provider credentials or Ollama; temp=0 for eval |
+
+**CI rules:**
+- Do **not** add `-m agent_proof` to default `ci.yml` until PRF tests exist (empty collection fails).
+- Never combine `live_llm` with PR merge gates — use separate `agent-eval.yml`.
+- Lane 2 deterministic shell tests use `integration` marker only — no `agent_proof`.
+
+Register all markers in `pytest.ini` with `--strict-markers` to catch typos.
 
 ## Common Pitfalls
 
@@ -178,14 +216,25 @@ def test_playbook():
 class TestPlaybook:
 ```
 
+### ❌ Don't: Run `@live_llm` tests in default PR CI
+```bash
+# Wrong — flaky and credential-dependent
+pytest -m live_llm
+```
+
+### ✅ Do: Gate live eval behind Makefile + optional workflow
+```bash
+make test-agent-quality  # no-op when AGENTS_ENABLED unset
+```
+
 ## Quality Gates
 
 - [ ] pytest.ini exists with proper configuration
 - [ ] Test discovery patterns configured
-- [ ] Markers defined for test categories
+- [ ] Markers defined for test categories (including `agent_proof`, `quality`, `live_llm` when SAO §17 applies)
 - [ ] Logging configured (file and console)
 - [ ] Coverage reporting configured
-- [ ] Makefile targets created for common operations
+- [ ] Makefile targets created for common operations (including `test-agent-proof` / `test-agent-quality` when agents enabled)
 - [ ] All tests discoverable by pytest
 - [ ] Tests organized in proper directory structure
 
@@ -195,7 +244,14 @@ class TestPlaybook:
 tests/
 ├── unit/                    # pytest -m unit
 ├── integration/             # pytest -m integration
+│   └── agent/               # pytest -m agent_proof (lane 1)
 ├── e2e/                     # pytest -m e2e
+├── fixtures/
+│   ├── llm_scripts/         # CAP-004 ScriptedLLM queues per PRF-id
+│   └── agent_tasks/         # TASK-* golden tasks (lane 4)
+├── support/
+│   ├── log_story.py
+│   └── agent_story.py       # TFK-02 bootstrap
 ├── conftest.py              # Shared fixtures
 └── pytest.ini               # Configuration
 ```
@@ -210,5 +266,5 @@ pytest-cov>=4.1.0
 pytest-asyncio>=0.21.0
 pytest-xdist>=3.3.0         # Parallel execution
 pytest-timeout>=2.1.0       # Test timeouts
-pytest-mock>=3.11.0         # Mocking support
+pytest-mock>=3.11.0         # Mocking support (unit tests only — not agent_proof)
 ```

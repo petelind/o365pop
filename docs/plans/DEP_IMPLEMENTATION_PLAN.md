@@ -1,11 +1,11 @@
 # DEP — Implementation Plan
 
-**Feature**: DEP LibreELEC Docker stack behind WireGuard  
-**Feature File**: `docs/features/act-1-bridge/deploy.feature`  
-**Scenarios**: DEP1.1  
-**GitHub Issues**: none yet  
-**Branch**: `feature/deploy-libreelec`  
-**Agent**: Dr. Dobbs v2  
+**Feature**: DEP LibreELEC Docker stack behind WireGuard
+**Feature File**: `docs/features/act-1-bridge/deploy.feature`
+**Scenarios**: DEP1.1
+**GitHub Issues**: none yet
+**Branch**: `feature/deploy-libreelec`
+**Agent**: Dr. Dobbs v2
 **Prerequisites**: POP + SMTP + TEAM checkpoints green (images must have all entrypoints)
 
 BPE-01 adjustments: no cloud/Helm. Compose + bind-config tests. Manual Entourage smoke is operator DoD, not CI.
@@ -47,7 +47,7 @@ BPE-01 adjustments: no cloud/Helm. Compose + bind-config tests. Manual Entourage
 
 ## Current State Assessment
 
-**Exists:** five processes as local make targets.  
+**Exists:** five processes as local make targets.
 **Missing:** Dockerfile, compose, bind guards, LibreELEC volume notes.
 
 ---
@@ -64,12 +64,12 @@ Rules: `do-test-first`, `do-small-increments`, `do-informative-logging`
 
 ### DEP1.1 Compose + bind policy
 
-- [ ] **1.1** `config.validate_bind()` — require `POP3_BIND`/`SMTP_BIND`; reject unspecified WAN; `ALLOW_LAN=1` is the only way to listen on all interfaces
-- [ ] **1.2** Red: `tests/unit/test_bind_config.py`
-- [ ] **1.3** `deploy/Dockerfile` — Python 3.14; entrypoints `worker`, `beat`, `popd`, `smtpd`
-- [ ] **1.4** `deploy/docker-compose.yml` — redis, worker, beat, popd, smtpd; `network_mode: host`; volumes `data`, `maildir`, `spool`, `logs`
-- [ ] **1.5** `deploy/libreelec/README.md` — `/storage/o365pop`, device-code over SSH, Entourage 110/587 no SSL
-- [ ] **1.6** Wire popd/smtpd to `validate_bind` at startup (log `config` beat with bind+port, never password)
+- [x] **1.1** `config.validate_bind()` — require `POP3_BIND`/`SMTP_BIND`; reject unspecified WAN; `ALLOW_LAN=1` is the only way to listen on all interfaces
+- [x] **1.2** Red: `tests/unit/test_bind_config.py`
+- [x] **1.3** `deploy/Dockerfile` — Python 3.14; entrypoints `worker`, `beat`, `popd`, `smtpd`
+- [x] **1.4** `deploy/docker-compose.yml` — redis, worker, beat, popd, smtpd; `network_mode: host`; volumes `data`, `maildir`, `spool`, `logs`
+- [x] **1.5** `deploy/libreelec/README.md` — `/storage/o365pop`, device-code over SSH, Entourage 110/587 no SSL
+- [x] **1.6** Wire popd/smtpd to `validate_bind` at startup (log `config` beat with bind+port, never password)
 - **Commit**: `feat(deploy): LibreELEC compose and WireGuard bind defaults`
 
 **Checkpoint**: `pytest tests/unit/test_bind_config.py -x`
@@ -90,10 +90,10 @@ Compose “listens on 110/587” is documented + operator smoke. A CI docker-com
 
 ## Definition of Done
 
-- [ ] Checkpoint green
-- [ ] README lists volumes and Entourage settings
-- [ ] `pytest tests/ -x` for the whole repo
-- [ ] Feature files annotated implemented after operator smoke
+- [x] Checkpoint green
+- [x] README lists volumes and Entourage settings
+- [x] `pytest tests/ -x` for the whole repo
+- [x] Feature files annotated implemented after operator smoke
 
 ---
 

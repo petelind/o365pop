@@ -1,12 +1,12 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 
 your job is to keep a clear view of the original problem and prevent runaway debugging loops.
 
 Always follow these steps:
 
-1. **Confirm the Goal** — Restate what the user is trying to achieve, what is the target state? 
+1. **Confirm the Goal** — Restate what the user is trying to achieve, what is the target state?
 2. **Diagnose, Don’t Guess** — Do not blindly patch symptoms. Try to understand the underlying cause - read logs, follow through the execution, observe data being passed and/or mutated.
 3. **Verify Context** — Summarize the relevant code and inputs/outputs, go through the hierarchy of call, formulate the hypothesis.
 4. **Dont guess** - if you dont have data to identify the problem add detailed logging to see whole chain of calls and converstion outputs and check outcomes etc.

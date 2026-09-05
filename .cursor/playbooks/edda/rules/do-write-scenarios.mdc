@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Writing Effective BDD Feature Files
@@ -16,7 +16,7 @@ alwaysApply: true
   - Consist of one or many scenarios user is going through to achieve the goal
   - Pick an ID (like a prefix for all scenarios in the file), like abbreviation "Library" -> LIB, "Dataset" - DS etc.
   - Analyze the codebase - which pages/views are already available? what we will use? what we will build?
- 
+
 
 
 ### Example Feature Spec

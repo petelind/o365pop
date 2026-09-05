@@ -1,0 +1,7 @@
+# Screen Flow / Dialogue Map Template
+
+**Type**: Template
+**Required**: No
+**Produced by**: Create Dialogue Maps
+
+Draw.io template for creating screen flow diagrams. Includes swimlane structure for acts, screen box conventions (bold border for LIST+FIND entry points), navigation arrow styles, and color coding (blue=FOB, green=Homebase, purple=MCP). Use as starting point for Create Dialogue Maps activity.
