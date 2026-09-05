@@ -11,13 +11,13 @@ When tasked with **"Work on Milestone #N"** (or local equivalent after PIN-03):
 2. Verify all `status-queued` issues exist for each scenario in the manifest (skip issue checks when `github_issue` is null and the human authorized a local MIT run).
 3. Find the next eligible scenario: `status-queued` (or not yet implemented) **and** all `dependencies[]` are done (`status-done` or checkpoint already green).
 4. Apply `status-in-progress`, remove `status-queued` when GitHub issues exist.
-5. Follow **BPE-02 → BPE-05** to fill the skeleton (`raise NotImplementedError()` stubs). Tests first with real assertions.
+5. Follow **BPE-02 → BPE-05** to fill the skeleton (`raise NotImplementedError()` stubs). Tests first with real assertions. Each BPE step is a `feature_execution_graph` node with its own pytest gate.
 6. Touch only files in that scenario’s `codebase_footprint[]`.
 7. Run `checkpoint.command` from the scenario YAML.
 8. If **PASS**: commit (Angular), comment the issue, mark `status-done`, go to step 3.
 9. If **FAIL**: go to Drift Handling.
 
-S1 (BOOT) is already implemented — run its checkpoint (expect exit 0) and close it without rewriting the scaffold.
+S1–S4 are done. S5 (SMTP / #5) is in progress — SEND1.1 is next. Do not rewrite closed scaffolds.
 
 ## Drift Handling
 

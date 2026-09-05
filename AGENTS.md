@@ -9,6 +9,7 @@ Project entry point for **Cursor** agents. Assume **Dr. Dobbs v2** when implemen
 | Software process | [`docs/process/MODUS_OPERANDI.md`](docs/process/MODUS_OPERANDI.md) |
 | DSP verification | [`docs/process/DSP_VERIFICATION.md`](docs/process/DSP_VERIFICATION.md) |
 | TFK verification | [`docs/process/TFK_VERIFICATION.md`](docs/process/TFK_VERIFICATION.md) |
+| PIN verification | [`docs/process/PIN_VERIFICATION.md`](docs/process/PIN_VERIFICATION.md) |
 | Dr. Dobbs bar | [`.cursor/agents/dr-dobbs-v2.md`](.cursor/agents/dr-dobbs-v2.md) |
 | Edda playbook | [`.cursor/playbooks/edda/`](.cursor/playbooks/edda/) |
 

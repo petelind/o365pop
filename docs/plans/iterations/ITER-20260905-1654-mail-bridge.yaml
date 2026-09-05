@@ -4,7 +4,10 @@ iteration:
   created_at: "2026-09-05T16:54:00-04:00"
   branch: "iteration/20260905-mail-bridge"
   github_milestone: 1
+  milestone_number: 1
   github_repo: "petelind/o365pop"
+  playbook: "Edda 73.0"
+  pin_rerun_at: "2026-09-05T17:35:00-04:00"
 
 conflict_map:
   o365pop/sync/tasks.py: [S2, S3, S5]
@@ -61,6 +64,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/unit/test_package_imports.py tests/unit/test_logging_configured.py tests/unit/test_db_schema.py tests/unit/test_celery_app.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/unit/test_logging_log_story_happy.py -x"
     dependencies: []
     sao_sections:
       - "§3 Code Organization"
@@ -88,6 +92,14 @@ scenarios:
       - "Do NOT commit .env, encryption keys, or *.sqlite3"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/BOOT_IMPLEMENTATION_PLAN.md"
+    feature_file_paths: []
+    system_dependencies: []
+    min_status: done
+    log_story_script:
+      - {beat: exit, where: "o365pop.logging_setup.configure_logging", trigger: handler_ready, must_include: ["beat"]}
+    log_tests:
+      - {name: test_configure_logging_log_story_happy, path: tests/unit/test_logging_log_story_happy.py}
+
 
   S2:
     title: "AUTH Device-code login and token vault"
@@ -110,6 +122,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/unit/test_mailbox_account_tokens.py tests/unit/test_graph_auth_service.py tests/integration/test_auth_login.py tests/integration/test_auth_revoked.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/integration/test_auth_login.py tests/integration/test_auth_revoked.py -x"
     dependencies: [S1]
     sao_sections:
       - "§2 Integration & API Design"
@@ -144,6 +157,17 @@ scenarios:
       - "Do NOT implement inbound toss or POP/SMTP"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/AUTH_IMPLEMENTATION_PLAN.md"
+    feature_file_paths:
+      - docs/features/act-1-bridge/auth.feature
+    system_dependencies: []
+    min_status: done
+    log_story_script:
+      - {beat: exit, where: "GraphAuthService.login_device_code", trigger: device_code_ok, must_include: ["user="]}
+      - {beat: error, where: "GraphAuthService.refresh_access_token", trigger: refresh_revoked, must_include: ["reason=auth_failed"]}
+    log_tests:
+      - {name: test_login_device_code_with_fixture_stores_encrypted_tokens, path: tests/integration/test_auth_login.py}
+      - {name: test_sync_mailbox_with_revoked_refresh_marks_failed_and_does_not_retry, path: tests/integration/test_auth_revoked.py}
+
 
   S3:
     title: "SYNC Graph pull, tosser, and maildir"
@@ -172,6 +196,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/integration/test_inbound_toss_outlook.py tests/integration/test_inbound_toss_teams.py tests/integration/test_sync_mailbox_task.py tests/integration/test_sync_mailbox_empty.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/integration/test_inbound_toss_outlook.py tests/integration/test_sync_mailbox_empty.py -x"
     dependencies: [S2]
     sao_sections:
       - "§1 Application Blocks"
@@ -207,6 +232,17 @@ scenarios:
       - "Do NOT write a custom POP server"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/SYNC_IMPLEMENTATION_PLAN.md"
+    feature_file_paths:
+      - docs/features/act-1-bridge/inbound.feature
+    system_dependencies: []
+    min_status: done
+    log_story_script:
+      - {beat: exit, where: "InboundTosser.toss_outlook", trigger: tossed, must_include: ["tossed=true"]}
+      - {beat: exit, where: "sync.tasks.sync_mailbox", trigger: empty_or_done, must_include: ["status="]}
+    log_tests:
+      - {name: test_inbound_toss_outlook, path: tests/integration/test_inbound_toss_outlook.py}
+      - {name: test_sync_mailbox_empty, path: tests/integration/test_sync_mailbox_empty.py}
+
 
   S4:
     title: "POP Twisted mailbox for Entourage"
@@ -224,6 +260,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/integration/test_pop_retrieve.py tests/integration/test_pop_auth.py tests/integration/test_pop_dele_local_only.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/integration/test_pop_auth.py -x"
     dependencies: [S3]
     sao_sections:
       - "§1 Application Blocks"
@@ -258,6 +295,15 @@ scenarios:
       - "Do NOT bind 0.0.0.0 in tests (use 127.0.0.1)"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/POP_IMPLEMENTATION_PLAN.md"
+    feature_file_paths:
+      - docs/features/act-1-bridge/pop.feature
+    system_dependencies: []
+    min_status: done
+    log_story_script:
+      - {beat: error, where: "popd", trigger: bad_pass, must_include: ["auth_failed"]}
+    log_tests:
+      - {name: test_pop_auth, path: tests/integration/test_pop_auth.py}
+
 
   S5:
     title: "SMTP aiosmtpd spool and sendMail scanner"
@@ -282,6 +328,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/integration/test_smtp_spool.py tests/integration/test_outbound_send.py tests/integration/test_outbound_send_fail.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/integration/test_outbound_send.py tests/integration/test_outbound_send_fail.py -x"
     dependencies: [S4]
     sao_sections:
       - "§1 Application Blocks"
@@ -315,6 +362,17 @@ scenarios:
       - "Do NOT use the Microsoft password for AUTH LOGIN"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/SMTP_IMPLEMENTATION_PLAN.md"
+    feature_file_paths:
+      - docs/features/act-1-bridge/smtp.feature
+    system_dependencies: []
+    min_status: in-progress
+    log_story_script:
+      - {beat: exit, where: "OutboundScanner.scan_once", trigger: sendMail_ok, must_include: ["sent=1"]}
+      - {beat: error, where: "OutboundScanner.scan_once", trigger: graph_400, must_include: ["reason=send_failed"]}
+    log_tests:
+      - {name: test_outbound_send, path: tests/integration/test_outbound_send.py}
+      - {name: test_outbound_send_fail, path: tests/integration/test_outbound_send_fail.py}
+
 
   S6:
     title: "TEAM Reply map — chat post not sendMail"
@@ -337,6 +395,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/unit/test_outbound_router.py tests/unit/test_reply_text.py tests/integration/test_teams_reply_in_reply_to.py tests/integration/test_teams_reply_to_address.py tests/integration/test_teams_reply_ordinary_mail.py tests/integration/test_teams_map_miss.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/integration/test_teams_reply_in_reply_to.py -x"
     dependencies: [S5]
     sao_sections:
       - "§2 Integration & API Design"
@@ -368,6 +427,15 @@ scenarios:
       - "Do NOT mock OutboundRouter in integration tests"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/TEAM_IMPLEMENTATION_PLAN.md"
+    feature_file_paths:
+      - docs/features/act-1-bridge/teams.feature
+    system_dependencies: []
+    min_status: queued
+    log_story_script:
+      - {beat: branch, where: "OutboundRouter.route", trigger: teams_map_hit, must_include: ["route=teams_chat"]}
+    log_tests:
+      - {name: test_teams_reply_in_reply_to, path: tests/integration/test_teams_reply_in_reply_to.py}
+
 
   S7:
     title: "DEP LibreELEC bind policy and compose"
@@ -385,6 +453,7 @@ scenarios:
     checkpoint:
       command: "pytest tests/unit/test_bind_config.py -x"
       expected_exit_code: 0
+      log_story_command: "pytest tests/unit/test_bind_config.py -x"
     dependencies: [S6]
     sao_sections:
       - "§8 Infrastructure"
@@ -417,3 +486,11 @@ scenarios:
       - "Do NOT require live Graph in CI"
     rollback_point: "git stash"
     bpe01_plan: "docs/plans/DEP_IMPLEMENTATION_PLAN.md"
+    feature_file_paths:
+      - docs/features/act-1-bridge/deploy.feature
+    system_dependencies: []
+    min_status: queued
+    log_story_script:
+      - {beat: config, where: "validate_bind", trigger: bind_ok, must_include: ["bind="]}
+    log_tests:
+      - {name: test_validate_bind_accepts_wireguard_address, path: tests/unit/test_bind_config.py}
