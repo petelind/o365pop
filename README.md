@@ -21,6 +21,7 @@ There is no HTTP welcome page. Operator surface is the CLI plus `logs/app.log`.
 | `make test-unit` | Unit tests only                     |
 | `make test-integration` | Integration tests (no mocks) |
 | `make test-log-story` | Caplog beat proofs              |
+| `make test-e2e`  | Live journey (device-code once, then POP/SMTP) |
 | `make test-watch` | Re-run tests on `.py` changes      |
 | `make lint`      | Run ruff                            |
 | `make format`    | Auto-format with ruff               |
@@ -33,7 +34,7 @@ There is no HTTP welcome page. Operator surface is the CLI plus `logs/app.log`.
 | `make clean`     | Remove build artifacts              |
 | `make help`      | Show all targets                    |
 
-`popd`, `smtpd`, and `login` are stubs until those features land.
+`make test-e2e` is operator-only (not the merge gate). First run prints a Microsoft device-code; tokens stay in `var/live-e2e/`.
 
 ## Documentation
 

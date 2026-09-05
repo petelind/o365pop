@@ -24,7 +24,7 @@ tests/
   support/agent_story.py   skip (SAO §17 N/A)
   fixtures/llm_scripts/    skip
   fixtures/agent_tasks/    skip
-  e2e/                     skip (no Playwright)
+  live/                    @live_graph operator journey (no Playwright)
 docs/features/steps/       skip (no behave)
 behave.ini                 skip
 pytest.ini                 ✅ unit / integration / log_story / live_graph
@@ -62,12 +62,12 @@ No `make test-at` (no behave). No staging E2E job. No `agent-eval.yml`.
 Makefile no-ops (so stock TFK commands do not fail the operator):
 
 - `make test-at` → skip: no behave AT
-- `make test-e2e` → skip: no Playwright
+- `make test-e2e` → `pytest tests/live/ -m live_graph -s` (operator journey; not Playwright)
 - `make test-agent-proof` / `test-agent-live` / `test-agent-quality` → skip: SAO §17 N/A
 
 ## TFK-06 Establish E2E Infrastructure
 
-**Skip.** SAO §1: no web UI. Live Graph (`@live_graph`) is the selective E2E stand-in. Do not add Playwright, `tests/e2e/`, or `cd.yml` e2e-staging.
+**Skip Playwright.** SAO §1: no web UI. Operator E2E is `tests/live/` + `@live_graph` (device-code capture, real popd/smtpd). Do not add Playwright, `tests/e2e/`, or `cd.yml` e2e-staging.
 
 ## TFK-07 Add Step and/or Fixture
 
@@ -82,7 +82,7 @@ Makefile no-ops (so stock TFK commands do not fail the operator):
 | Log story | `make test-log-story` | PASS (BOOT golden) |
 | Integration | `make test-integration` | Not a full green merge gate — SEND/TEAM/DEP still skeleton |
 | AT | `make test-at` | skip |
-| E2E | `make test-e2e` | skip |
+| E2E | `make test-e2e` | live journey (`tests/live/`); skip if Azure env missing |
 
 **CRITICAL (expected, tracked):**
 

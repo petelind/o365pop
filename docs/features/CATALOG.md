@@ -13,6 +13,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | RFC822 bytes | `tests/support/fixtures.py` → `load_mail` | POP/SMTP/tosser |
 | Log beats | `tests/support/log_story.py` → `assert_log_story` | Same commit as behavior |
 | TOKEN_ENCRYPTION_KEY / env | pytest `monkeypatch` + `.env.example` names | Never commit secrets |
+| Live captured login (device-code once) | `tests/support/live_session.py` → `ensure_captured_session` | `var/live-e2e/` gitignored; `@live_graph` only |
 
 ## AUTH (`auth.feature`)
 
@@ -60,6 +61,17 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | Scenario | Phrase | Pytest / helper |
 |---|---|---|
 | DEP1.1 | bind 110/587; not WAN; compose services | `tests/unit/test_bind_config.py` (S7 skeleton) |
+
+## Live journey (`docs/features/user_journey.md`) — `@live_graph` only
+
+| Act | Phrase | Pytest / helper |
+|---|---|---|
+| Act 1 | device-code (or reuse vault); encrypted tokens; local USER/PASS | `tests/live/test_user_journey.py::test_act1_login_captured_for_real_user` |
+| Act 2 | live sendMail probe → toss → POP RETR | `tests/live/test_user_journey.py::test_act2_sync_probe_then_pop_collect` |
+| Act 3 | SMTP AUTH LOGIN → scanner sendMail → `spool/sent` | `tests/live/test_user_journey.py::test_act3_smtp_sendmail_to_self` |
+| Act 4 | To `teams.*` → chat post (skip if no chats) | `tests/live/test_user_journey.py::test_act4_teams_reply_posts_chat` |
+
+`make test-e2e` / `make test-live-graph`. Not part of `make test`.
 
 ## BOOT (no feature file)
 

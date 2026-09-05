@@ -15,5 +15,5 @@ This file exists so TFK/BPE agents can find the finished Test Strategy without h
 **Skipped from stock TFK (documented drift):**
 
 - behave-django / `docs/features/steps/` — no Django test client
-- Playwright / `tests/e2e/` — no UI (SAO §1)
+- Playwright / `tests/e2e/` — no UI (SAO §1). Operator E2E is `tests/live/` + `@live_graph` (device-code capture, real popd/smtpd).
 - Agent lanes / `assert_agent_story` — SAO §17 N/A

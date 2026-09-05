@@ -29,6 +29,10 @@ JSON presets describe **shape**, not live secrets. Encrypted token columns stay 
 | empty | `presets/empty.json` | isolation | no account, no tossed rows |
 | authenticated_mailbox | `presets/authenticated_mailbox.json` | AUTH/SYNC Background | one mailbox_user=`denis`; token fields empty placeholders |
 
+## Live vault (not a committed fixture)
+
+`var/live-e2e/` — created by `ensure_captured_session`. Encrypted tokens + maildir/spool. Gitignored. Never commit.
+
 ## Agent eval roots
 
 **N/A** (SAO §17 skipped). Do not add `llm_scripts/` or `agent_tasks/`.

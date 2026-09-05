@@ -99,7 +99,7 @@ test-log-story: ## Caplog beat proofs
 	@$(PYTEST) tests/ -v --tb=short -m log_story
 
 test-live-graph: ## Live Microsoft Graph (not a merge gate)
-	@$(PYTEST) tests/ -v --tb=short -m live_graph
+	@$(PYTEST) tests/live/ tests/ -v --tb=short -o addopts="-v --tb=short --strict-markers" -m live_graph -s
 
 test-watch: ## Re-run merge-gate tests on .py changes
 	@$(PYTHON) scripts/continuous_test_runner.py
@@ -107,8 +107,8 @@ test-watch: ## Re-run merge-gate tests on .py changes
 test-at: ## Stock Edda AT — skip (no behave; SAO §5)
 	@echo "skip: no behave AT (SAO §1 / §5)"
 
-test-e2e: ## Stock Edda E2E — skip (no Playwright; SAO §1)
-	@echo "skip: no Playwright E2E (SAO §1)"
+test-e2e: ## Operator journey vs live Graph + real popd/smtpd (not a merge gate)
+	@$(PYTEST) tests/live/ -v --tb=short -o addopts="-v --tb=short --strict-markers" -m live_graph -s
 
 test-agent-proof: ## Stock Edda lane 1 — skip (SAO §17 N/A)
 	@echo "skip: agents N/A (SAO §17)"

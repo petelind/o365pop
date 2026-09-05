@@ -182,6 +182,7 @@ make test               # pytest -m "not live_graph"
 make test-unit          # pytest tests/unit/
 make test-integration   # pytest tests/integration/
 make test-log-story     # caplog beat proofs
+make test-e2e           # live Graph journey (device-code capture; not merge gate)
 make status             # CLI health (no HTTP server)
 make login              # device-code Microsoft login
 ```

@@ -150,7 +150,7 @@ TFK-01 re-run 2026-09-05 against Edda v73. Stock Trophy (behave-django + Playwri
 | Stock v73 | o365pop |
 |---|---|
 | behave-django AT (`make test-at`) | Skip — phrases catalogued, proven by pytest |
-| Playwright E2E (`make test-e2e`) | Skip — Entourage is the client |
+| Playwright E2E (`make test-e2e`) | Skip Playwright — `tests/live/` + `@live_graph` is the operator journey |
 | Agent lanes 1–4 | Skip — SAO §17 N/A |
 | FactoryBoy / AutoFixture | Skip — FileGraphAdapter + JSON presets |
 
@@ -178,8 +178,9 @@ TFK-01 re-run 2026-09-05 against Edda v73. Stock Trophy (behave-django + Playwri
 | `make test-integration` | `pytest tests/integration/ -m integration` |
 | `make test-log-story` | `pytest -m log_story` — caplog beats via `assert_log_story` |
 | `make test-live-graph` | `pytest -m live_graph` — operator-only |
+| `make test-e2e` | `pytest tests/live/ -m live_graph -s` — captured-login journey (Acts 1–4) |
 
-Default collection **excludes** `live_graph`. `make test-at` / `make test-e2e` / `make test-agent-*` are documented no-ops (TFK-05).
+Default collection **excludes** `live_graph`. `make test-at` / `make test-agent-*` are documented no-ops (TFK-05). `make test-e2e` is the live journey, not Playwright.
 
 ### Coverage policy
 
@@ -200,6 +201,7 @@ A bug is a failing unit/integration scenario. Fix the same day and add a permane
 tests/
   unit/                 # pytest -m unit
   integration/          # pytest -m integration (no mocks)
+  live/                 # @live_graph operator journey (captured login)
   fixtures/             # Graph cases, RFC822, presets — see tests/fixtures/CATALOG.md
   support/
     log_story.py        # assert_log_story(caplog, where=..., beats=...)
