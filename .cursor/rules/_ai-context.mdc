@@ -30,6 +30,9 @@ Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk 
 | System architecture | `docs/architecture/SAO.md` | Before big changes |
 | User journey / Acts | `docs/features/user_journey.md` | Feature planning |
 | Feature specs (BDD) | `docs/features/act-1-bridge/` | Before implementing any feature |
+| Test strategy (TFK) | `docs/architecture/SAO.md` §5 | Before writing tests |
+| Phrase catalog | `docs/features/CATALOG.md` | Mapping Gherkin → pytest |
+| Fixture catalog | `tests/fixtures/CATALOG.md` | Graph/MIME/preset cases |
 | Program index | `docs/plans/O365POP_IMPLEMENTATION_PLAN.md` | Order and checkpoints |
 | Feature plans | `docs/plans/{BOOT,AUTH,SYNC,POP,SMTP,TEAM,DEP}_IMPLEMENTATION_PLAN.md` | BPE-01 per feature |
 | Clarifications | `docs/plans/O365POP_Clarifications.md` | Locked defaults |

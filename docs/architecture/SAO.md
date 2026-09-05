@@ -112,7 +112,7 @@ o365pop/                 # installable package (config, celery_app, cli, db)
   popd/                  # Twisted POP3 daemon (IMailboxPOP3 → maildir)
   smtpd/                 # aiosmtpd handler
   sync/                  # Celery tasks (pull, toss, scan, cleanup)
-tests/{unit,integration,fixtures}
+tests/{unit,integration,fixtures,support}
 deploy/{Dockerfile,docker-compose.yml,libreelec/}
 logs/app.log
 docs/{architecture,features,plans}
@@ -134,12 +134,90 @@ Single `MailboxAccount` row in v1. POP UIDL = stable hash of Graph id (or genera
 
 ## 5. Test Strategy
 
-- pytest; layout `tests/unit/`, `tests/integration/`
-- Unit: tosser, MIME factory, **reply router / chat address codec**, token encrypt, POP command parser, AUTH LOGIN decoder
-- Integration: **no mocks**. Real maildir, real aiosmtpd, real POP daemon, real Celery eager, Graph via `FileGraphAdapter` (fixture JSON/MIME on disk) or a local HTTP fixture server — not `unittest.mock` on services
-- Live Graph (device-code against Denis’s tenant) is lane 3 — not a PR merge gate
-- Log-story tests (`assert_log_story`) for sync/toss/send decision beats
-- Checkpoint: one pytest command per scenario (see plan)
+Pointer: [`docs/architecture/test-architecture.md`](test-architecture.md). Catalogs: [`docs/features/CATALOG.md`](../features/CATALOG.md), [`tests/fixtures/CATALOG.md`](../../tests/fixtures/CATALOG.md).
+
+TFK-01 fleshes this section. Edda’s default Trophy (behave-django + Playwright) does **not** apply: there is no web UI (SAO §1). Gherkin in `docs/features/` is the requirements document; pytest integration tests are the executable engine. SAO §17 (agent lanes) is **N/A** — no ScriptedLLM, no `llm_scripts/`, no `make test-agent-proof`.
+
+### Test Trophy (daemon-adjusted)
+
+| Level | Weight | Runner | What it proves |
+|---|---|---|---|
+| Unit | Thin | `pytest -m unit` | Pure logic: chat address codec, MIME factory, reply router, Fernet vault, AUTH LOGIN decoder, POP command parse. Do **not** test sqlite3/`mailbox` framework behavior. |
+| Integration | **Thick** | `pytest -m integration` | Feature works with real maildir, real aiosmtpd, real Twisted POP daemon, real sqlite, Celery `task_always_eager`. Graph via `FileGraphAdapter` (disk JSON/MIME) or a local HTTP fixture server. **No `unittest.mock` on services.** |
+| Acceptance | Spec | Gherkin in `docs/features/act-*/` | Executable requirements. Each scenario maps to a pytest module in the Step Library Catalog. No behave runner. |
+| E2E / live | Selective | `@pytest.mark.live_graph` | Device-code against Denis’s tenant. **Not** a PR merge gate. No Playwright. |
+
+### Why Trophy over Pyramid
+
+- Unit tests of `sqlite3.connect` or `Maildir.add` prove nothing about toss/dedup/DELE.
+- A browser E2E suite does not exist — Entourage is the client; we speak POP/SMTP in-process.
+- Integration (real daemons + fixture Graph) is the sweet spot: real bytes, no GUI, fast enough for `make test`.
+
+### Runner mapping
+
+| Command | What |
+|---|---|
+| `make test` | `pytest tests/ -m "not live_graph"` — merge gate |
+| `make test-unit` | `pytest tests/unit/ -m unit` |
+| `make test-integration` | `pytest tests/integration/ -m integration` |
+| `make test-log-story` | `pytest -m log_story` — caplog beats via `assert_log_story` |
+| `make test-live-graph` | `pytest -m live_graph` — operator-only |
+
+Default collection **excludes** `live_graph`. Empty `integration/` is allowed until AUTH/SYNC land.
+
+### Coverage policy
+
+Coverage numbers are necessary but not sufficient. Quality gates:
+
+- No mocks in integration tests (`do-not-mock-in-integration-tests`)
+- Log-story tests ship in the **same commit** as the behavior they prove (`do-assert-log-story`)
+- Never assert raw tokens, mailbox passwords, or raw MIME bodies
+- Checkpoint = one pytest command per feature plan (see `docs/plans/`)
+
+### Zero-bug and zero-length feedback
+
+A bug is a failing unit/integration scenario. Fix the same day and add a permanent regression test (`do-update-tests-after-bugfixing`). Continuous pytest writes `tests.log`. `make test-watch` re-runs on `.py` changes.
+
+### Layout
+
+```
+tests/
+  unit/                 # pytest -m unit
+  integration/          # pytest -m integration (no mocks)
+  fixtures/             # Graph cases, RFC822, presets — see tests/fixtures/CATALOG.md
+  support/
+    log_story.py        # assert_log_story(caplog, where=..., beats=...)
+    fixtures.py         # load_graph_case / load_mail / load_preset
+    mailbox.py          # isolated maildir / spool / sqlite
+docs/features/
+  act-1-bridge/*.feature
+  CATALOG.md            # phrase → pytest helper (TFK-03; no behave steps)
+```
+
+### Graph in tests
+
+| Mode | When | How |
+|---|---|---|
+| FileGraphAdapter | PR / `make test` | `tests/fixtures/graph/<case>/` |
+| Live Graph | `@live_graph` only | Device-code; never merge-gate |
+
+### Log story
+
+Helper: `from tests.support.log_story import assert_log_story`.
+
+```python
+assert_log_story(
+    caplog,
+    where="HealthCheck.run",
+    beats={"entry": ["probe=bootstrap"], "exit": ["status=ok"]},
+)
+```
+
+Format in `logs/app.log`: `{logger} | {Class.method} | {beat} | key=value`. Beats: `entry → config → validation → processing → branch → exit → error`.
+
+### Agent lanes
+
+**Skip.** No SAO §17. Do not add `agent_proof` / `live_llm` / `quality` markers or empty `llm_scripts/` trees.
 
 ## 6. Performance & Scalability
 
@@ -166,7 +244,7 @@ Copy taciturn2 `sync_user_o365_data` shape:
 
 ## 9. CI/CD Pipeline
 
-v1: `make test` locally. GitHub Actions pytest later (BSP/DTA-10). No cloud deploy.
+v1 merge gate is local (and optional GitHub Actions): `make provision && make lint && make test`. That is TFK-05. No cloud deploy. `@live_graph` is never a PR job. DCD may add a richer pipeline later.
 
 ## 10. Release & Rollback
 
@@ -205,14 +283,16 @@ Back up `/storage/o365pop/data` (SQLite + tokens) and maildir. Spool `failed/` i
 
 ## 15. Developer Experience
 
-- `make provision` `make test` `make worker` `make beat` `make popd` `make smtpd` `make login`
+- `make provision` `make test` `make test-unit` `make test-integration` `make test-log-story` `make test-watch`
+- `make worker` `make beat` `make popd` `make smtpd` `make login`
 - pytest + Celery `task_always_eager` in unit/integration
 - Dr. Dobbs v2: skeleton → red → green → refactor; methods ≤ 30 lines
 
 ## 16. Documentation Strategy
 
 - This SAO is the architecture lock
-- Feature files in `docs/features/act-*/`
+- Feature files in `docs/features/act-*/`; phrase map in `docs/features/CATALOG.md`
+- Fixture catalog in `tests/fixtures/CATALOG.md`
 - Plan in `docs/plans/O365POP_IMPLEMENTATION_PLAN.md`
 - Update `_ai-context.mdc` when SAO sections change
 

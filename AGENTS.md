@@ -24,6 +24,6 @@ Full principles and per-method checklist: [`.cursor/agents/dr-dobbs-v2.md`](.cur
 
 ## Bootstrap status
 
-BSP + BOOT scaffold is in place (Python 3.14 package, pytest, Celery app, SQLite schema, `logs/app.log`). No Django / HTMX / HTTP welcome page — health is `python -m o365pop status`.
+BSP + BOOT + TFK-01–05 are in place (Python 3.14 package, pytest Trophy, fixture/phrase catalogs, `logs/app.log`). No Django / HTMX / Playwright — health is `python -m o365pop status`. Gherkin is spec-only; pytest is the engine.
 
 Next feature: **AUTH** (`docs/plans/AUTH_IMPLEMENTATION_PLAN.md`).

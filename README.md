@@ -17,8 +17,11 @@ There is no HTTP welcome page. Operator surface is the CLI plus `logs/app.log`.
 | Command          | Description                         |
 |------------------|-------------------------------------|
 | `make provision` | Install prerequisites and dependencies |
-| `make test`      | Run all tests                       |
-| `make test-unit` | Run unit tests                      |
+| `make test`      | Merge-gate tests (excludes live Graph) |
+| `make test-unit` | Unit tests only                     |
+| `make test-integration` | Integration tests (no mocks) |
+| `make test-log-story` | Caplog beat proofs              |
+| `make test-watch` | Re-run tests on `.py` changes      |
 | `make lint`      | Run ruff                            |
 | `make format`    | Auto-format with ruff               |
 | `make status`    | CLI health check                    |
@@ -34,6 +37,7 @@ There is no HTTP welcome page. Operator surface is the CLI plus `logs/app.log`.
 
 ## Documentation
 
-- [System Architecture Overview](docs/architecture/SAO.md)
+- [System Architecture Overview](docs/architecture/SAO.md) — §5 Test Strategy
+- [Phrase catalog](docs/features/CATALOG.md) · [Fixture catalog](tests/fixtures/CATALOG.md)
 - [Implementation index](docs/plans/O365POP_IMPLEMENTATION_PLAN.md)
 - [User journey](docs/features/user_journey.md)

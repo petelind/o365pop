@@ -1,0 +1,34 @@
+# Fixture Library Catalog (TFK-04)
+
+Static cases live under `tests/fixtures/`. Loaders: `tests/support/fixtures.py`. Isolated dirs: `tests/support/mailbox.py`.
+
+JSON presets describe **shape**, not live secrets. Encrypted token columns stay null until AUTH tests write Fernet ciphertext.
+
+## Graph cases (`graph/<case>/`)
+
+| case_id | Path | Files | Linked scenario | Linked test |
+|---|---|---|---|---|
+| SYNC1.1-outlook-q3-close | `graph/SYNC1.1-outlook-q3-close/` | `inbox.json`, `message.eml` | SYNC1.1 | `tests/integration/test_inbound_toss_outlook.py` |
+| SYNC1.2-teams-ship-it | `graph/SYNC1.2-teams-ship-it/` | `chats.json`, `messages.json` | SYNC1.2 | `tests/integration/test_inbound_toss_teams.py` |
+| SYNC1.3-empty | `graph/SYNC1.3-empty/` | `inbox.json`, `chats.json` | SYNC1.3 | `tests/integration/test_sync_mailbox_empty.py` |
+
+`inbox.json` / `chats.json` / `messages.json` are Graph-like `{ "value": [ ... ] }` lists. MIME is raw RFC822 (`message.eml`). FileGraphAdapter (SYNC) must read these paths as-is.
+
+## RFC822 (`mail/`)
+
+| id | Path | Used by |
+|---|---|---|
+| outlook-q3-close | `mail/outlook-q3-close.eml` | SYNC1.1, POP1.1, POP1.3 |
+| hello-ada | `mail/hello-ada.eml` | SMTP1.1, SEND1.1, TEAM1.3 |
+| teams-ship-it | `mail/teams-ship-it.eml` | SYNC1.2, TEAM1.1 |
+
+## Presets (`presets/`)
+
+| id | Path | Scope | Notes |
+|---|---|---|---|
+| empty | `presets/empty.json` | isolation | no account, no tossed rows |
+| authenticated_mailbox | `presets/authenticated_mailbox.json` | AUTH/SYNC Background | one mailbox_user=`denis`; token fields empty placeholders |
+
+## Agent eval roots
+
+**N/A** (SAO §17 skipped). Do not add `llm_scripts/` or `agent_tasks/`.
