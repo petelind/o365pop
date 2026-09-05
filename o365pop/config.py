@@ -112,3 +112,15 @@ def _env_int(name: str, default: int) -> int:
         return int(raw)
     except ValueError as exc:
         raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
+
+
+def validate_bind(bind: str, *, allow_lan: bool) -> None:
+    """Reject unspecified WAN binds unless ALLOW_LAN is set (DEP1.1).
+
+    :param bind: Listen address. Example: ``"10.8.0.1"``
+    :param allow_lan: When True, ``0.0.0.0`` is allowed. Example: ``False``
+    :return: None
+    :raises ValueError: if bind is empty or ``0.0.0.0`` without allow_lan
+    """
+    logger.info("config.validate_bind | entry | bind=%s allow_lan=%s", bind, allow_lan)
+    raise NotImplementedError()

@@ -1,0 +1,49 @@
+# Host network so popd/smtpd bind the WireGuard address (SAO §8).
+# Secrets live in /storage/o365pop/.env — not in the image.
+services:
+  redis:
+    image: redis:7-alpine
+    network_mode: host
+    restart: unless-stopped
+
+  worker:
+    build: .
+    network_mode: host
+    env_file: /storage/o365pop/.env
+    volumes:
+      - /storage/o365pop/data:/app/var
+      - /storage/o365pop/logs:/app/logs
+    command: ["celery", "-A", "o365pop.celery_app", "worker", "-l", "INFO"]
+    restart: unless-stopped
+    depends_on: [redis]
+
+  beat:
+    build: .
+    network_mode: host
+    env_file: /storage/o365pop/.env
+    volumes:
+      - /storage/o365pop/data:/app/var
+      - /storage/o365pop/logs:/app/logs
+    command: ["celery", "-A", "o365pop.celery_app", "beat", "-l", "INFO"]
+    restart: unless-stopped
+    depends_on: [redis]
+
+  popd:
+    build: .
+    network_mode: host
+    env_file: /storage/o365pop/.env
+    volumes:
+      - /storage/o365pop/data:/app/var
+      - /storage/o365pop/logs:/app/logs
+    command: ["python", "-m", "o365pop", "popd"]
+    restart: unless-stopped
+
+  smtpd:
+    build: .
+    network_mode: host
+    env_file: /storage/o365pop/.env
+    volumes:
+      - /storage/o365pop/data:/app/var
+      - /storage/o365pop/logs:/app/logs
+    command: ["python", "-m", "o365pop", "smtpd"]
+    restart: unless-stopped
