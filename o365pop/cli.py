@@ -19,9 +19,7 @@ from o365pop.logging_setup import configure_logging
 
 logger = logging.getLogger(__name__)
 
-_STUB_FEATURES = {
-    "smtpd": "SMTP (aiosmtpd daemon)",
-}
+_STUB_FEATURES: dict[str, str] = {}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -44,6 +42,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_login(settings)
     if args.command == "popd":
         return run_popd(settings)
+    if args.command == "smtpd":
+        return run_smtpd(settings)
     return run_stub(args.command)
 
 
@@ -136,6 +136,25 @@ def run_popd(settings: Settings) -> int:
         db_path=settings.db_path,
     )
     logger.info("cli.run_popd | exit | status=stopped")
+    return 0
+
+
+def run_smtpd(settings: Settings) -> int:
+    """Start the aiosmtpd daemon (cleartext AUTH LOGIN).
+
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: ``0`` after the server stops. Example: ``0``
+    """
+    from o365pop.smtpd.service import run_smtpd as serve_smtpd
+
+    logger.info("cli.run_smtpd | entry | bind=%s port=%s", settings.smtp_bind, settings.smtp_port)
+    serve_smtpd(
+        bind=settings.smtp_bind,
+        port=settings.smtp_port,
+        spool_root=settings.data_dir / "spool",
+        db_path=settings.db_path,
+    )
+    logger.info("cli.run_smtpd | exit | status=stopped")
     return 0
 
 

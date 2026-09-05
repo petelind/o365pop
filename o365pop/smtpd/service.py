@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from threading import Event
+
+from aiosmtpd.controller import Controller
+
+from o365pop.smtpd.handler import BridgeHandler
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +21,37 @@ def run_smtpd(*, bind: str, port: int, spool_root: Path, db_path: Path) -> None:
     :param spool_root: Spool directory. Example: ``Path("var/spool")``
     :param db_path: sqlite path. Example: ``Path("var/o365pop.sqlite3")``
     :return: None (blocks)
-    :raises ValueError: if bind is rejected
+    :raises ValueError: if bind is empty
     """
     logger.info("smtpd.service.run_smtpd | entry | bind=%s port=%s", bind, port)
-    raise NotImplementedError()
+    if not bind:
+        raise ValueError("SMTP bind address is required")
+    controller = _make_controller(bind=bind, port=port, spool_root=spool_root, db_path=db_path)
+    controller.start()
+    logger.info("smtpd.service.run_smtpd | exit | listening=true bind=%s port=%s tls=false", bind, port)
+    try:
+        Event().wait()
+    finally:
+        controller.stop()
+
+
+def _make_controller(*, bind: str, port: int, spool_root: Path, db_path: Path) -> Controller:
+    """Build a cleartext AUTH LOGIN controller (no STARTTLS).
+
+    :param bind: Listen address. Example: ``"127.0.0.1"``
+    :param port: Listen port. Example: ``10587``
+    :param spool_root: Spool directory. Example: ``Path("var/spool")``
+    :param db_path: sqlite path. Example: ``Path("var/o365pop.sqlite3")``
+    :return: Controller. Example: ``<Controller>``
+    """
+    handler = BridgeHandler(spool_root, db_path)
+    logger.info("smtpd.service._make_controller | config | tls=false auth_required=true")
+    return Controller(
+        handler,
+        hostname=bind,
+        port=port,
+        authenticator=handler._authenticate,
+        auth_required=True,
+        auth_require_tls=False,
+        ident="o365pop",
+    )
