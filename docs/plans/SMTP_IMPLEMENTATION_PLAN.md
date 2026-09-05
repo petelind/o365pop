@@ -1,11 +1,11 @@
 # SMTP — Implementation Plan
 
-**Feature**: SMTP Entourage submits mail; scanner sends via Graph  
-**Feature File**: `docs/features/act-1-bridge/smtp.feature`  
-**Scenarios**: SMTP1.1, SEND1.1, SEND1.2  
-**GitHub Issues**: none yet  
-**Branch**: `feature/smtpd-sendmail`  
-**Agent**: Dr. Dobbs v2  
+**Feature**: SMTP Entourage submits mail; scanner sends via Graph
+**Feature File**: `docs/features/act-1-bridge/smtp.feature`
+**Scenarios**: SMTP1.1, SEND1.1, SEND1.2
+**GitHub Issues**: none yet
+**Branch**: `feature/smtpd-sendmail`
+**Agent**: Dr. Dobbs v2
 **Prerequisites**: AUTH + SYNC (bearer, GraphPort.send_mime, FileGraphAdapter)
 
 BPE-01 adjustments: `aiosmtpd` daemon + Celery scanner. smtpd must not import graph. TEAM router is **not** in this feature — SEND1.1 is always `sendMail`. TEAM adds the branch later.
@@ -48,7 +48,7 @@ BPE-01 adjustments: `aiosmtpd` daemon + Celery scanner. smtpd must not import gr
 
 ## Current State Assessment
 
-**Exists:** GraphPort stub `send_mime`, local account, Celery.  
+**Exists:** GraphPort stub `send_mime`, local account, Celery.
 **Missing:** aiosmtpd handler, SpoolStore, outbound scanner, beat for spool.
 
 ---
@@ -65,25 +65,25 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-not-mock-in-integration-tests`
 
 ### SMTP1.1 Spool from AUTH LOGIN + DATA
 
-- [ ] **1.1** Skeleton `mailstore.SpoolStore` (`new`/`retry`/`sent`/`failed`)
-- [ ] **1.2** Skeleton `smtpd.handler.BridgeHandler` — AUTH LOGIN/PLAIN, no STARTTLS, write `spool/new/`
-- [ ] **1.3** Red: `tests/integration/test_smtp_spool.py` — real `smtplib`, no TLS, subject `Hello Ada`, Graph unused
-- [ ] **1.4** Green
+- [x] **1.1** Skeleton `mailstore.SpoolStore` (`new`/`retry`/`sent`/`failed`)
+- [x] **1.2** Skeleton `smtpd.handler.BridgeHandler` — AUTH LOGIN/PLAIN, no STARTTLS, write `spool/new/`
+- [x] **1.3** Red: `tests/integration/test_smtp_spool.py` — real `smtplib`, no TLS, subject `Hello Ada`, Graph unused
+- [x] **1.4** Green
 - **Commit**: `feat(smtpd): cleartext AUTH LOGIN writes RFC822 to spool`
 
 ### SEND1.1 Scanner → sendMail
 
-- [ ] **2.1** Implement `HttpGraphAdapter.send_mime` / FileGraphAdapter records posted bytes
-- [ ] **2.2** Skeleton `tosser.OutboundScanner.scan_once` — send then move to `sent`
-- [ ] **2.3** `sync.tasks.scan_outbound_spool` + beat `SPOOL_SCAN_SECONDS` (default 30)
-- [ ] **2.4** Red/green: `tests/integration/test_outbound_send.py` — same MIME bytes posted; file in `spool/sent`; log `exit` sent=1
+- [x] **2.1** Implement `HttpGraphAdapter.send_mime` / FileGraphAdapter records posted bytes
+- [x] **2.2** Skeleton `tosser.OutboundScanner.scan_once` — send then move to `sent`
+- [x] **2.3** `sync.tasks.scan_outbound_spool` + beat `SPOOL_SCAN_SECONDS` (default 30)
+- [x] **2.4** Red/green: `tests/integration/test_outbound_send.py` — same MIME bytes posted; file in `spool/sent`; log `exit` sent=1
 - **Commit**: `feat(tosser): scan spool and POST MIME sendMail`
 
 ### SEND1.2 Graph reject → retry → failed
 
-- [ ] **3.1** Attempt counter on spool sidecar or filename
-- [ ] **3.2** Red: `tests/integration/test_outbound_send_fail.py` — HTTP 400 → `retry` then `failed`; log `error` reason=`send_failed`
-- [ ] **3.3** Green
+- [x] **3.1** Attempt counter on spool sidecar or filename
+- [x] **3.2** Red: `tests/integration/test_outbound_send_fail.py` — HTTP 400 → `retry` then `failed`; log `error` reason=`send_failed`
+- [x] **3.3** Green
 - **Commit**: `fix(tosser): retry then quarantine failed sendMail`
 
 **Checkpoint**: `pytest tests/integration/test_smtp_spool.py tests/integration/test_outbound_send.py tests/integration/test_outbound_send_fail.py -x`
@@ -102,9 +102,9 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-not-mock-in-integration-tests`
 
 ## Definition of Done
 
-- [ ] Checkpoint green
-- [ ] `rg "from o365pop.graph" o365pop/smtpd` is empty
-- [ ] Next feature is TEAM (router)
+- [x] Checkpoint green
+- [x] `rg "from o365pop.graph" o365pop/smtpd` is empty
+- [x] Next feature is TEAM (router)
 
 ---
 

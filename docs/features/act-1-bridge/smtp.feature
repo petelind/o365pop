@@ -8,7 +8,7 @@ Feature: SMTP Entourage submits mail and scanner sends via Graph
     And the local mailbox user is "denis" with password "local-pass"
     And the outbound spool is empty
 
-  Scenario: SMTP1.1 Entourage AUTH LOGIN and DATA land in the spool
+  Scenario: ✅ SMTP1.1 Entourage AUTH LOGIN and DATA land in the spool
     When an SMTP client connects without TLS
     And the client AUTH LOGIN as "denis" with password "local-pass"
     And the client sends MAIL FROM:<denis@example.com>
@@ -19,14 +19,14 @@ Feature: SMTP Entourage submits mail and scanner sends via Graph
     And that file contains subject "Hello Ada"
     And Graph is not called by smtpd
 
-  Scenario: SEND1.1 Scanner posts spool MIME to Graph sendMail
+  Scenario: ✅ SEND1.1 Scanner posts spool MIME to Graph sendMail
     Given spool/new contains RFC822 with subject "Hello Ada"
     When Celery runs scan_outbound_spool
     Then Graph receives POST /me/sendMail with the same MIME bytes
     And the file is moved to spool/sent
     And logs/app.log contains beat "exit" with sent=1
 
-  Scenario: SEND1.2 Graph reject moves mail to retry then failed
+  Scenario: ✅ SEND1.2 Graph reject moves mail to retry then failed
     Given spool/new contains RFC822 with subject "Bad recipient"
     And Graph sendMail returns HTTP 400
     When Celery runs scan_outbound_spool
