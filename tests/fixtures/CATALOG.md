@@ -1,6 +1,6 @@
 # Fixture Library Catalog (TFK-04)
 
-Static cases live under `tests/fixtures/`. Loaders: `tests/support/fixtures.py`. Isolated dirs: `tests/support/mailbox.py`.
+TFK-04 re-run 2026-09-05 (Edda v73, daemon-adjusted). Static cases live under `tests/fixtures/`. Loaders: `tests/support/fixtures.py`. Isolated dirs: `tests/support/mailbox.py`. No FactoryBoy — JSON presets + FileGraphAdapter.
 
 JSON presets describe **shape**, not live secrets. Encrypted token columns stay null until AUTH tests write Fernet ciphertext.
 

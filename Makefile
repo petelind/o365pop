@@ -4,7 +4,8 @@
 # ==============================================================================
 
 .PHONY: help provision run status test test-unit test-integration test-log-story \
-	test-live-graph test-watch lint format typecheck precommit db-init \
+	test-live-graph test-watch test-at test-e2e test-agent-proof \
+	test-agent-live test-agent-quality lint format typecheck precommit db-init \
 	worker beat popd smtpd login clean clean-all \
 	_check-prereqs _venv _pip-install _db-init
 
@@ -102,6 +103,21 @@ test-live-graph: ## Live Microsoft Graph (not a merge gate)
 
 test-watch: ## Re-run merge-gate tests on .py changes
 	@$(PYTHON) scripts/continuous_test_runner.py
+
+test-at: ## Stock Edda AT — skip (no behave; SAO §5)
+	@echo "skip: no behave AT (SAO §1 / §5)"
+
+test-e2e: ## Stock Edda E2E — skip (no Playwright; SAO §1)
+	@echo "skip: no Playwright E2E (SAO §1)"
+
+test-agent-proof: ## Stock Edda lane 1 — skip (SAO §17 N/A)
+	@echo "skip: agents N/A (SAO §17)"
+
+test-agent-live: ## Stock Edda lane 3 — skip (SAO §17 N/A)
+	@echo "skip: agents N/A (SAO §17)"
+
+test-agent-quality: ## Stock Edda lane 4 — skip (SAO §17 N/A)
+	@echo "skip: agents N/A (SAO §17)"
 
 # ==============================================================================
 ##@ Code Quality

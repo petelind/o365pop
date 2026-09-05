@@ -16,7 +16,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 
 ## AUTH (`auth.feature`)
 
-| Scenario | Phrase (Then / When) | Pytest / helper (planned) |
+| Scenario | Phrase (Then / When) | Pytest / helper |
 |---|---|---|
 | AUTH1.1 | device-code login; encrypted tokens; beat `exit` user= | `tests/integration/test_auth_login.py` |
 | AUTH1.2 | expired access; refresh; sync continues | `tests/unit/test_graph_auth_service.py` |
@@ -24,7 +24,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 
 ## SYNC (`inbound.feature`)
 
-| Scenario | Phrase | Pytest / helper (planned) |
+| Scenario | Phrase | Pytest / helper |
 |---|---|---|
 | SYNC1.1 | Inbox `AAMk-outlook-1` / subject `Q3 close`; no dup | `tests/integration/test_inbound_toss_outlook.py` + fixture `graph/SYNC1.1-outlook-q3-close` |
 | SYNC1.2 | Teams From `teams.{b32}@o365pop.local`; Message-ID `<teams.` | `tests/integration/test_inbound_toss_teams.py` + `graph/SYNC1.2-teams-ship-it` |
@@ -32,7 +32,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 
 ## POP (`pop.feature`)
 
-| Scenario | Phrase | Pytest / helper (planned) |
+| Scenario | Phrase | Pytest / helper |
 |---|---|---|
 | POP1.1 | USER/PASS, STAT, UIDL, RETR, TOP; no TLS | `tests/integration/test_pop_retrieve.py` + `mail/outlook-q3-close.eml` |
 | POP1.2 | wrong password `-ERR`; password not logged | `tests/integration/test_pop_auth.py` |
@@ -40,26 +40,26 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 
 ## SMTP / SEND (`smtp.feature`)
 
-| Scenario | Phrase | Pytest / helper (planned) |
+| Scenario | Phrase | Pytest / helper |
 |---|---|---|
 | SMTP1.1 | AUTH LOGIN + DATA → `spool/new`; Graph not called by smtpd | `tests/integration/test_smtp_spool.py` + `mail/hello-ada.eml` |
-| SEND1.1 | scanner `sendMail`; file → `spool/sent` | `tests/integration/test_outbound_send.py` |
-| SEND1.2 | Graph 400 → retry then `spool/failed` | `tests/integration/test_outbound_send_fail.py` |
+| SEND1.1 | scanner `sendMail`; file → `spool/sent` | `tests/integration/test_outbound_send.py` (S5 in progress) |
+| SEND1.2 | Graph 400 → retry then `spool/failed` | `tests/integration/test_outbound_send_fail.py` (S5) |
 
 ## TEAM (`teams.feature`)
 
-| Scenario | Phrase | Pytest / helper (planned) |
+| Scenario | Phrase | Pytest / helper |
 |---|---|---|
-| TEAM1.1 | In-Reply-To → chat post; route=`teams_chat` | `tests/integration/test_teams_reply_in_reply_to.py` |
-| TEAM1.2 | To `teams.{b32}@…` without In-Reply-To | `tests/integration/test_teams_reply_to_address.py` |
-| TEAM1.3 | ordinary To → sendMail | `tests/integration/test_teams_reply_ordinary_mail.py` |
-| TEAM1.4 | unknown `@o365pop.local` → failed; `teams_map_miss` | `tests/integration/test_teams_map_miss.py` |
+| TEAM1.1 | In-Reply-To → chat post; route=`teams_chat` | `tests/integration/test_teams_reply_in_reply_to.py` (S6 skeleton) |
+| TEAM1.2 | To `teams.{b32}@…` without In-Reply-To | `tests/integration/test_teams_reply_to_address.py` (S6 skeleton) |
+| TEAM1.3 | ordinary To → sendMail | `tests/integration/test_teams_reply_ordinary_mail.py` (S6 skeleton) |
+| TEAM1.4 | unknown `@o365pop.local` → failed; `teams_map_miss` | `tests/integration/test_teams_map_miss.py` (S6 skeleton) |
 
 ## DEP (`deploy.feature`)
 
-| Scenario | Phrase | Pytest / helper (planned) |
+| Scenario | Phrase | Pytest / helper |
 |---|---|---|
-| DEP1.1 | bind 110/587; not WAN; compose services | `tests/unit/test_bind_config.py` |
+| DEP1.1 | bind 110/587; not WAN; compose services | `tests/unit/test_bind_config.py` (S7 skeleton) |
 
 ## BOOT (no feature file)
 
