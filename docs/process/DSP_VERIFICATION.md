@@ -36,10 +36,10 @@ Architecture & Code Organization Check:
   Technology stack defined   | ✅ Python 3.14 package, sqlite, Celery, httpx/msal, aiosmtpd, Twisted POP3
   Directory layout defined   | ✅ SAO §3
   Project structure exists   | ✅ o365pop/, tests/, docs/, Makefile, .venv
-  BPE workflow available     | ✅ .cursor/playbooks/edda/Build_Feature/ (8 activities)
-  Skills available           | ✅ 19 skills in .cursor/playbooks/edda/skills/
-  Artifact templates         | ✅ 28 templates in .cursor/playbooks/edda/artifacts/
-  TFK in this export         | ⚠️ not shipped in FeatureFactory v14; applied from Edda v73 (see SAO §5)
+  BPE workflow available     | ✅ .cursor/playbooks/edda/BPE/ (9 activities, Edda v73)
+  Skills available           | ✅ 30 skills in .cursor/playbooks/edda/skills/
+  Artifact templates         | ✅ 39 templates in .cursor/playbooks/edda/artifacts/
+  TFK in this export         | ✅ .cursor/playbooks/edda/TFK/ (9 activities)
 ```
 
 **Ready for DSP-05.** Primary ADE output: `.cursor/rules/_ai-context.mdc`.

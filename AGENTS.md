@@ -17,7 +17,7 @@ Project entry point for **Cursor** agents. Assume **Dr. Dobbs v2** when implemen
 
 1. Read the feature spec and `_ai-context.mdc`
 2. Skeleton → tests (red) → implement (green) → refactor
-3. Follow BPE in `.cursor/playbooks/edda/Build_Feature/`
+3. Follow BPE in `.cursor/playbooks/edda/BPE/` (Edda v73; start at `BPE-01-Plan_Feature.md`)
 4. Apply `.cursor/rules/` — especially `do-test-first`, `do-skeletons-first`, `do-informative-logging`, `o365pop-stack-locks`
 
 ## ADE status

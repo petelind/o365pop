@@ -1,0 +1,7 @@
+# SAO.md § Test Strategy
+
+**Type**: Document
+**Required**: No
+**Produced by**: Define Test Architecture
+
+{"type": "Document", "is_required": true, "description": "SAO.md § Test Strategy — the authoritative Test Trophy, runner mapping (pytest / behave-django AT / Playwright E2E), coverage targets, quality gates, zero-bug policy, and zero-length feedback workflow. When SAO §17 applies, includes four agent test lanes (seeded DTA-06; fleshed TFK-01): control-plane proofs, deterministic shell, live contract eval, task performance quality. Seeded as broad strokes by DTA-06 / DTA-18; fleshed out by TFK-01 before BPE. Not a separate peer document under docs/architecture/. Consumed by TFK-02 through TFK-06 and by BPE-01 Plan Feature."}

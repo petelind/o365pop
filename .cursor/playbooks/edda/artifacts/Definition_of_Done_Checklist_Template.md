@@ -1,241 +1,197 @@
 # Definition of Done Checklist Template
 
-**Type**: Template  
-**Required**: Yes  
-**Produced by**: Check Definition of Done
+**Type**: Document
+**Required**: No
+**Produced by**: Generate AI IDE Configuration
 
-# Definition of Done Checklist - {FeatureName}
+# Definition of Done Checklist Template
 
-**Feature**: {FeatureScreenID} {FeatureTitle}  
-**Branch**: `feature/{feature-slug}`  
-**Reviewer**: {ReviewerName}  
-**Date**: {Date}
+**Artifact ID**: 43
+**Type**: Template
+**Required**: True
 
----
+## Description
 
-## Code Implementation
-
-### Backend
-- [ ] All models implemented with proper fields and relationships
-- [ ] All services/business logic implemented
-- [ ] All views/controllers implemented
-- [ ] All URL routes configured
-- [ ] All database migrations created and applied
-- [ ] No hardcoded values - use settings/environment variables
-- [ ] Proper error handling and logging
-- [ ] All docstrings complete with examples (`:param:`, `:return:`, `:raises:`)
-- [ ] Type hints on all function signatures
-
-### Frontend
-- [ ] All templates implemented with semantic HTML
-- [ ] All HTMX interactions implemented
-- [ ] All forms have proper validation (client + server)
-- [ ] All `data-testid` attributes added for Playwright
-- [ ] Bootstrap components used correctly
-- [ ] Font Awesome icons added to all buttons
-- [ ] Tooltips added to all action buttons
-- [ ] Responsive design verified (mobile, tablet, desktop)
-- [ ] Accessibility: ARIA labels, keyboard navigation, focus management
+Reusable checklist template defining 'done' criteria for feature delivery: test coverage, logging, code quality, accessibility, documentation, deployment readiness, and (when SAO §17 applies) agent proof + TASK promotion gates. Created once during DSP process setup and consumed by all BPE iterations.
 
 ---
 
-## Testing
+# {FeatureName} — Definition of Done
 
-### Test Coverage
-- [ ] Unit tests: **{UnitTestCount}** tests written
-- [ ] Integration tests: **{IntegrationTestCount}** tests written
-- [ ] View tests: **{ViewTestCount}** tests written
-- [ ] E2E tests: **{E2ETestCount}** tests written
-- [ ] **Test pass rate: 100%** (no failing tests)
-- [ ] **Code coverage: {CoveragePercentage}%** (minimum {CoverageTarget}%)
-
-### Test Quality
-- [ ] All happy path scenarios tested
-- [ ] All error scenarios tested
-- [ ] All edge cases tested
-- [ ] All validation rules tested
-- [ ] All authentication/authorization checks tested
-- [ ] All state changes verified
-- [ ] All redirects verified
-- [ ] All messages (success/error) verified
-- [ ] No mocking in integration tests (use real objects)
+**Feature**: {FeatureScreenID} {FeatureTitle}
+**GitHub Issue**: #{IssueNumber}
+**Implementation Plan**: `{PlanPath}`
 
 ---
 
-## Code Quality
+## Core Development Rules Checklist
 
-### Linting & Formatting
-- [ ] `make lint` passes with 0 errors, 0 warnings
-- [ ] Code follows project style guide
-- [ ] No commented-out code blocks
-- [ ] No debug print statements
-- [ ] No TODO comments (convert to issues)
+### Test-First Development
+- [ ] Every function/method has corresponding test(s)
+- [ ] Feature files in `docs/features/` exist and comply with scenarios
+- [ ] Tests use pytest framework
+- [ ] Mocking is minimal (CAP-004 ScriptedLLM carve-out in `@agent_proof` tests only)
 
-### Code Review
-- [ ] Code reviewed by {ReviewerName}
-- [ ] All review comments addressed
-- [ ] No merge conflicts
-- [ ] Branch up to date with main/develop
+### Continuous Testing
+- [ ] All tests are runnable via `pytest tests/`
+- [ ] Tests are pytest compatible with proper fixtures
+- [ ] `tests.log` file exists and contains test output
 
----
-
-## Documentation
-
-### Code Documentation
-- [ ] All functions have docstrings with examples
-- [ ] All classes have docstrings
-- [ ] All complex logic has inline comments
-- [ ] All magic numbers explained
-
-### User Documentation
-- [ ] README updated if needed
-- [ ] Feature file marked complete
-- [ ] Implementation plan marked complete
-- [ ] Any new setup steps documented
+### Concise Methods
+- [ ] Top-level (public) methods are 20-30 lines maximum
+- [ ] Supporting logic is in well-named private methods
+- [ ] Helper methods have single, focused responsibilities
+- [ ] Method names are descriptive and clear
 
 ---
 
-## User Experience
+## Code Quality Rules Checklist
 
-### Functionality
-- [ ] All scenarios from feature file implemented
-- [ ] All user flows work end-to-end
-- [ ] All forms submit correctly
-- [ ] All validation messages are clear and helpful
-- [ ] All success messages are clear
-- [ ] All error messages are user-friendly (no stack traces)
-- [ ] All empty states have helpful messages and actions
+### Import Management
+- [ ] All imports are at module level
+- [ ] No imports inside functions/methods
+- [ ] Dependencies are properly declared
 
-### UI/UX
-- [ ] UI matches mockups/design
-- [ ] Consistent styling across all pages
-- [ ] Loading states for async operations
-- [ ] Proper focus management
-- [ ] No layout shifts or flickering
-- [ ] Icons are semantically appropriate
-- [ ] Button labels are clear and actionable
+### Log Story Verification
+- [ ] Implementation plan / issue contains a **Log Story Script** (Where / Beat / Trigger / Must include)
+- [ ] Every script row is proven by a passing `*_log_story_*` caplog test (or `checkpoint.log_story_command` from the iteration manifest)
+- [ ] Happy **and** reject paths covered when the scenario has both
+- [ ] Log levels are appropriate (DEBUG, INFO, WARNING, ERROR)
+- [ ] No secrets/tokens/passwords appear at INFO in asserted lines
+- [ ] No deferred logging slice remains in the plan
 
-### Performance
-- [ ] Page load time < {LoadTimeTarget}ms
-- [ ] No N+1 queries
-- [ ] Database queries optimized
-- [ ] Static assets cached properly
+Grep of `logs/app.log` is an **audit aid**, not the DoD gate. Caplog (or `log_story_command`) is the gate.
 
----
+### Agent Proof Verification (when SAO §17 / plan Section G in scope)
+- [ ] Implementation plan / issue contains an **Agent Proof Table** (PRF ID, workflow, script path, trace beats)
+- [ ] Every PRF row is proven by a passing `*_agent_story_*` test marked `@pytest.mark.agent_proof` (or `checkpoint.agent_proof_command` from the iteration manifest)
+- [ ] Happy **and** reject paths covered when the PRF is adverse or has a reject sketch
+- [ ] Tests use **CAP-004 ScriptedLLM** only — no `FakeLLM`, no `@patch` on ToolExecutor or domain services in `@agent_proof` tests
+- [ ] LLM scripts exist under `tests/fixtures/llm_scripts/<prf-id>/` for every asserted path
+- [ ] Trace asserts control-plane beats per artifact 56 Part 4.5 addendum: **workflow**, **tools**, **domain**, **board/plan** — not assistant wording
+- [ ] No secrets/tokens/passwords in trace or asserted log lines
+- [ ] No deferred agent-proof slice remains in the plan
 
-## Security
+Grep of run logs is an **audit aid**, not the DoD gate. `assert_agent_story` (or `agent_proof_command`) is the gate.
 
-- [ ] All user inputs validated and sanitized
-- [ ] No SQL injection vulnerabilities
-- [ ] No XSS vulnerabilities
-- [ ] CSRF protection enabled
-- [ ] Authentication required where needed
-- [ ] Authorization checks in place
-- [ ] Sensitive data not logged
-- [ ] No secrets in code (use environment variables)
+### TASK Promotion Checklist (lane 4 — when SAO §17 TASK-* rows selected; not story merge DoD)
+- [ ] Golden task fixtures exist under `tests/fixtures/agent_tasks/<task-id>/` with `manifest.yaml` fields: `task_id`, `sc_xx`, `fixture_ref`, `oracle_type`, `pass_band`, `expected_ref`
+- [ ] `n_runs` and certified pass band recorded in SAO §17 when task is promotion-gated
+- [ ] Tests marked `@pytest.mark.quality` (+ `@live_llm` when using live provider); temp=0 on eval runs
+- [ ] Structured oracle is source of truth — Deepeval overlay (if used) is secondary for SC-01 fuzzy tasks only
+- [ ] `make test-agent-quality` green vs last certified band before human promotion decision
+- [ ] Lane 4 failure does **not** block story merge when PRF lane 1 proofs are green — confirm TASK eval remains on nightly / promotion path only
 
 ---
 
-## Deployment Readiness
+## Testing and Quality Assurance Checklist
 
-### Configuration
-- [ ] All environment variables documented
-- [ ] Database migrations tested
-- [ ] Static files collected
-- [ ] Settings configured for production
+### Integration Test Standards
+- [ ] Integration tests in `tests/integration/` exist
+- [ ] Integration tests avoid mocking (except CAP-004 ScriptedLLM in `@agent_proof` tests)
+- [ ] Real dependencies are used in integration scenarios
 
-### Monitoring
-- [ ] Logging configured at appropriate levels
-- [ ] Error tracking configured
-- [ ] Key metrics identified
-
----
-
-## Git & GitHub
-
-### Commits
-- [ ] All commits follow Angular convention
-- [ ] Commit messages are descriptive
-- [ ] No WIP commits in final PR
-- [ ] Commits are atomic (one logical change per commit)
-
-### Pull Request
-- [ ] PR title follows convention: `{FeatureName} - {ScenarioIDs}`
-- [ ] PR description includes:
-  - [ ] Link to feature file
-  - [ ] Link to implementation plan
-  - [ ] List of GitHub issues closed
-  - [ ] Screenshots/GIFs of UI changes
-  - [ ] Testing instructions
-- [ ] PR labeled appropriately
-- [ ] PR assigned to reviewer
-- [ ] All CI/CD checks passing
-
-### Issues
-- [ ] All related GitHub issues closed
-- [ ] Issues reference PR number
-- [ ] Issues have completion comments
+### Commit Conventions
+- [ ] Recent commit messages follow Angular conventional format
+- [ ] Commits are atomic and focused
+- [ ] Breaking changes are documented in commit messages
 
 ---
 
-## Final Verification
+## UI and Frontend Rules Checklist
 
-### Manual Testing
-- [ ] Tested in Chrome
-- [ ] Tested in Firefox
-- [ ] Tested in Safari (if applicable)
-- [ ] Tested on mobile device
-- [ ] Tested with screen reader (basic check)
-- [ ] Tested keyboard navigation
+### Django Views + HTMX
+- [ ] No DRF views exist for new web UI features
+- [ ] Django views return HTML templates
+- [ ] HTMX attributes used for dynamic interactions
+- [ ] Services layer is shared between MCP and Web UI
 
-### Smoke Test
-- [ ] Can create {EntityName}
-- [ ] Can view {EntityName}
-- [ ] Can edit {EntityName}
-- [ ] Can delete {EntityName}
-- [ ] Can search/filter {EntityName}
-- [ ] All error scenarios handled gracefully
+### Semantic Naming
+- [ ] All interactive elements have `data-testid` attributes
+- [ ] Naming follows kebab-case convention
+- [ ] Form inputs have proper name and id attributes
 
 ---
 
-## Sign-Off
+## Documentation Checklist
 
-### Developer
-- [ ] I confirm all items above are complete
-- [ ] I have tested all scenarios manually
-- [ ] I have reviewed my own code
-- [ ] I am confident this is production-ready
+### Scenario Writing
+- [ ] BDD scenarios exist for features
+- [ ] Feature files are well-structured
+- [ ] Scenarios cover edge cases and error conditions
+- [ ] Review GUI — do scenarios match behavior, fields, URLs, design rules?
 
-**Developer**: {DeveloperName}  
-**Date**: {Date}  
-**Signature**: _________________
+### TODO Management
+- [ ] TODO comments exist for incomplete implementations
+- [ ] TODO items have clear descriptions
+- [ ] TODOs in dependencies can be ignored
 
-### Reviewer
-- [ ] I have reviewed the code
-- [ ] I have tested the feature
-- [ ] All DoD items verified
-- [ ] Approved for merge
+---
 
-**Reviewer**: {ReviewerName}  
-**Date**: {Date}  
-**Signature**: _________________
+## Final Validation Checklist
+
+### Overall Quality Check
+- [ ] Feature meets acceptance criteria
+- [ ] Code is production-ready
+- [ ] Documentation exists and is accurate
+
+### Integration Validation
+- [ ] Feature integrates with existing system
+- [ ] No breaking changes introduced
+- [ ] Dependencies properly declared in requirements.txt
+
+### Deployment Readiness
+- [ ] Database migrations exist if needed
+- [ ] Environment variables are documented
+- [ ] Configuration changes are documented
+
+### Cleanup
+- [ ] Remove temporary files like debug_*.py
+- [ ] Scan file structure for stray misplaced files
+- [ ] Remove *.log files from repository
+
+---
+
+## Rules Reference
+
+Before validating DoD, **read** each Rule below in this playbook (by slug), then **apply** it:
+
+Required:
+- `do-test-first`
+- `do-continuous-testing`
+- `do-write-concise-methods`
+- `do-import-on-module-level`
+- `do-informative-logging`
+- `do-assert-log-story`
+- `do-assert-agent-story` (when SAO §17 / Section G in scope)
+- `do-not-mock-in-integration-tests`
+- `do-follow-commit-convention`
+- `do-semantic-versioning-on-ui-elements`
+- `pytest`
+
+Activity-specific:
+- Observability DoD is **Log Story Verification** (caplog / `log_story_command`), not "logging statements exist".
+- Agent DoD is **Agent Proof Verification** (`agent_proof_command` / `@agent_proof`), not "the agent loop exists" or Behave AT alone.
+- TASK-* lane 4 is **Promotion Checklist** only — artifact 56 Part 4.6; skill *Agent Task Eval*.
+
+---
+
+## Sign-off
+
+- [ ] All applicable checklist items verified
+- [ ] Deviations documented and approved (or deferred as GitHub issues with `deferred` label)
+- [ ] Ready for PR / merge
+
+**Reviewer**: {ReviewerName}
+**Date**: {SignOffDate}
 
 ---
 
 ## Placeholder Reference
 
-- `{FeatureName}` - Feature name
-- `{FeatureScreenID}` - Screen ID
-- `{feature-slug}` - Branch slug
-- `{ReviewerName}` - Code reviewer name
-- `{Date}` - Current date
-- `{UnitTestCount}` - Number of unit tests
-- `{IntegrationTestCount}` - Number of integration tests
-- `{ViewTestCount}` - Number of view tests
-- `{E2ETestCount}` - Number of E2E tests
-- `{CoveragePercentage}` - Actual coverage percentage
-- `{CoverageTarget}` - Target coverage percentage (e.g., 80)
-- `{LoadTimeTarget}` - Target page load time in ms
-- `{EntityName}` - Entity being managed
-- `{DeveloperName}` - Developer name
-- `{ScenarioIDs}` - Scenario IDs implemented
+- `{FeatureName}` — Feature name
+- `{FeatureScreenID}` — Screen ID (e.g., FOB-AUTH-LOGIN-1)
+- `{IssueNumber}` — GitHub issue number
+- `{PlanPath}` — Path to implementation plan
+- `{ReviewerName}` — Human reviewer
+- `{SignOffDate}` — ISO date

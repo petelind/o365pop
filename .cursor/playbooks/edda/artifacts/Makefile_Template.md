@@ -1,8 +1,16 @@
 # Makefile Template
 
-**Type**: Code  
-**Required**: Yes  
+**Type**: Document
+**Required**: No
 **Produced by**: Create Makefile
+
+# Makefile Template
+
+**Artifact ID**: 11
+**Type**: Code
+**Required**: True
+
+## Description
 
 # ==============================================================================
 # Makefile Template — FeatureFactory
@@ -33,7 +41,7 @@
 #   DCD workflow adds ##@ Deployment targets
 # ==============================================================================
 
-.PHONY: help provision run test test-unit test-integration test-e2e lint format clean
+.PHONY: help provision run test test-unit test-integration test-e2e test-agent-proof test-agent-eval test-agent-quality lint format clean
 
 # Default target
 .DEFAULT_GOAL := help
@@ -232,6 +240,42 @@ makemigrations: ## Create new migrations
 # 	@echo "=== DNS ==="
 # 	dig +short prod.$(DOMAIN)
 # 	dig +short idle.$(DOMAIN)
+
+
+# ==============================================================================
+##@ Agent eval (optional — when SAO §17 applies)
+# ==============================================================================
+#
+# Gated on AGENTS_ENABLED=true. No-op with message when unset — agent-less projects
+# keep default `make test` as the only merge gate. See artifact 56 Part 3.4 / 4.6
+# and TFK-05 for lane mapping.
+#
+# Lane 1: test-agent-proof   — PRF control-plane (@agent_proof, ScriptedLLM)
+# Lane 3: test-agent-eval    — live contract eval (@live_llm, temp=0)
+# Lane 4: test-agent-quality — TASK-* golden oracle (@quality)
+
+.PHONY: test-agent-proof test-agent-eval test-agent-quality
+
+test-agent-proof: ## Lane 1 — PRF control-plane proofs (ScriptedLLM)
+ifeq ($(AGENTS_ENABLED),true)
+	@$(PYTEST) tests/integration/agent/ -v -m agent_proof --tb=short 2>&1 | tee -a tests.log
+else
+	@echo "skip: agents N/A (SAO §17) — set AGENTS_ENABLED=true to run"
+endif
+
+test-agent-eval: ## Lane 3 — live contract eval (temp=0, not ScriptedLLM)
+ifeq ($(AGENTS_ENABLED),true)
+	@$(PYTEST) tests/ -v -m live_llm --tb=short 2>&1 | tee -a tests.log
+else
+	@echo "skip: agents N/A (SAO §17) — set AGENTS_ENABLED=true to run"
+endif
+
+test-agent-quality: ## Lane 4 — TASK-* golden task quality band
+ifeq ($(AGENTS_ENABLED),true)
+	@$(PYTEST) tests/ -v -m quality --tb=short 2>&1 | tee -a tests.log
+else
+	@echo "skip: agents N/A (SAO §17) — set AGENTS_ENABLED=true to run"
+endif
 
 # ==============================================================================
 ##@ Cleanup

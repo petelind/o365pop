@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 
 Render and review as a human would: zoom to ~50% and scan for clarity.

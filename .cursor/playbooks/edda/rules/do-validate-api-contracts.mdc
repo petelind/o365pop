@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 
 ## Requirements
@@ -45,7 +45,7 @@ if (response.status === 200 && response.data) {
 }
 
 // ✅ CORRECT - Full validation with nested structure
-if (response.status === 200 && response.data && 
+if (response.status === 200 && response.data &&
     response.data.authenticated && response.data.token_valid) {
   setUser(response.data.user); // Correctly accessing nested user
 }

@@ -63,21 +63,21 @@ docs/{architecture,features,plans,ux,process}
 
 ## Available Workflows
 
-Playbook: FeatureFactory v14 (`.cursor/playbooks/edda/`). TFK is **not** in this export; SAO §5 records the Edda v73 application.
+Playbook: **Edda v73** (`.cursor/playbooks/edda/`). Folders are abbreviations (`BPE/`, `MIN/`); activities are `{ABBR}-NN-Name.md`.
 
 | Workflow | Purpose | Activities | When to Use |
 |----------|---------|------------|-------------|
 | ESM | Envision the System | 7 | Defining what to build |
-| DTA | Define Architecture | 18 | Architectural decisions |
+| DTA | Define Architecture | 20 | Architectural decisions |
 | EST | Estimate the Project | 8 | Sizing (optional) |
 | DCI | Design & Deploy Cloud Infra | 7 | N/A for v1 LibreELEC |
 | DCD | Design & Deploy CICD | 7 | Richer GH Actions later |
 | DSP | Deploy Software Process | 6 | This ADE (Cursor) |
 | BSP | Bootstrap Project | 8 | Package scaffold (done) |
-| BPE | Build Feature | 8 | **Primary delivery workflow** |
-| PIN | Plan Iteration | 4 | Sprint contract |
-| MIN | Manage Iteration | 4 | Execute / close sprint |
-| TFK | Test Automation Framework | 9 (v73) | Harness / catalogs (done 01–05) |
+| BPE | Build Feature | 9 | **Primary delivery workflow** |
+| PIN | Plan Iteration | 5 | Sprint contract |
+| MIN | Manage Iteration | 7 | TL dispatch / gate / UAT / close |
+| TFK | Test Automation Framework | 9 | Harness / catalogs (done 01–05) |
 
 ---
 

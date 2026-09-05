@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
 
 When the bug was discovered, you performed and investigation anf fix, ask yourself - "why our current test(s) was not able to find it?"
