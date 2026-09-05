@@ -20,8 +20,6 @@ from o365pop.logging_setup import configure_logging
 logger = logging.getLogger(__name__)
 
 _STUB_FEATURES = {
-    "login": "AUTH (device-code login)",
-    "popd": "POP (Twisted POP3 daemon)",
     "smtpd": "SMTP (aiosmtpd daemon)",
 }
 
@@ -44,6 +42,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_init_db(settings)
     if args.command == "login":
         return run_login(settings)
+    if args.command == "popd":
+        return run_popd(settings)
     return run_stub(args.command)
 
 
@@ -117,6 +117,25 @@ def run_login(settings: Settings) -> int:
         conn.close()
     print(f"Logged in as {username}")
     logger.info("cli.run_login | exit | user=%s", username)
+    return 0
+
+
+def run_popd(settings: Settings) -> int:
+    """Start the Twisted POP3 daemon (cleartext USER/PASS).
+
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: ``0`` after the reactor stops. Example: ``0``
+    """
+    from o365pop.popd.service import run_popd as serve_popd
+
+    logger.info("cli.run_popd | entry | bind=%s port=%s", settings.pop3_bind, settings.pop3_port)
+    serve_popd(
+        bind=settings.pop3_bind,
+        port=settings.pop3_port,
+        maildir=settings.data_dir / "maildir",
+        db_path=settings.db_path,
+    )
+    logger.info("cli.run_popd | exit | status=stopped")
     return 0
 
 

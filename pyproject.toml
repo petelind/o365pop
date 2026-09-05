@@ -14,7 +14,8 @@ target-version = "py314"
 select = ["E", "F", "I", "N", "W"]
 
 [tool.ruff.lint.per-file-ignores]
-# Twisted IMailboxPOP3 requires camelCase method names.
+# Twisted IMailboxPOP3 / cred hooks require camelCase method names.
 "o365pop/popd/mailbox.py" = ["N802"]
+"o365pop/popd/service.py" = ["N802", "N803", "N815"]
 # aiosmtpd handler hooks are handle_AUTH / handle_DATA.
 "o365pop/smtpd/handler.py" = ["N802"]
