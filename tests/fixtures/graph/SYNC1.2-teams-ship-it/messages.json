@@ -1,0 +1,19 @@
+{
+  "value": [
+    {
+      "id": "teams-msg-1",
+      "chatId": "19:general",
+      "createdDateTime": "2026-03-01T12:05:00Z",
+      "from": {
+        "user": {
+          "displayName": "Ada Lovelace",
+          "id": "ada-graph-id"
+        }
+      },
+      "body": {
+        "contentType": "text",
+        "content": "Ship it"
+      }
+    }
+  ]
+}

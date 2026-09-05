@@ -1,0 +1,17 @@
+{
+  "mailbox_account": [
+    {
+      "id": 1,
+      "display_name": "Denis",
+      "graph_user_id": "denis-graph-id",
+      "encrypted_access_token": null,
+      "encrypted_refresh_token": null,
+      "token_expires_at": null,
+      "mailbox_user": "denis",
+      "mailbox_password_hash": "local-pass-placeholder"
+    }
+  ],
+  "sync_session": [],
+  "tossed_message": [],
+  "chat_map": []
+}

@@ -1,0 +1,15 @@
+{
+  "value": [
+    {
+      "id": "AAMk-outlook-1",
+      "subject": "Q3 close",
+      "receivedDateTime": "2026-03-01T12:00:00Z",
+      "from": {
+        "emailAddress": {
+          "name": "Ada Lovelace",
+          "address": "ada@example.com"
+        }
+      }
+    }
+  ]
+}

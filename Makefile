@@ -3,8 +3,9 @@
 # No Django / npm. CI calls these targets.
 # ==============================================================================
 
-.PHONY: help provision run status test test-unit test-integration lint format \
-	typecheck precommit db-init worker beat popd smtpd login clean clean-all \
+.PHONY: help provision run status test test-unit test-integration test-log-story \
+	test-live-graph test-watch lint format typecheck precommit db-init \
+	worker beat popd smtpd login clean clean-all \
 	_check-prereqs _venv _pip-install _db-init
 
 .DEFAULT_GOAL := help
@@ -84,14 +85,23 @@ db-init: _db-init ## Recreate / apply SQLite schema
 ##@ Testing
 # ==============================================================================
 
-test: ## Run all tests
-	@$(PYTEST) tests/ -v --tb=short
+test: ## Merge gate: all tests except live_graph
+	@$(PYTEST) tests/ -v --tb=short -m "not live_graph"
 
 test-unit: ## Run unit tests only
-	@$(PYTEST) tests/unit/ -v --tb=short
+	@$(PYTEST) tests/unit/ -v --tb=short -m "unit and not live_graph"
 
 test-integration: ## Run integration tests only
-	@$(PYTEST) tests/integration/ -v --tb=short
+	@$(PYTEST) tests/integration/ -v --tb=short -m "integration and not live_graph"
+
+test-log-story: ## Caplog beat proofs
+	@$(PYTEST) tests/ -v --tb=short -m log_story
+
+test-live-graph: ## Live Microsoft Graph (not a merge gate)
+	@$(PYTEST) tests/ -v --tb=short -m live_graph
+
+test-watch: ## Re-run merge-gate tests on .py changes
+	@$(PYTHON) scripts/continuous_test_runner.py
 
 # ==============================================================================
 ##@ Code Quality

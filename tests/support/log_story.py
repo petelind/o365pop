@@ -1,4 +1,4 @@
-"""Assert log-story script rows against pytest ``caplog`` (TFK-02 helper)."""
+"""Assert log-story beats against pytest ``caplog`` (TFK-02 helper)."""
 
 from __future__ import annotations
 
@@ -13,34 +13,77 @@ LEVEL_NAMES = {
 }
 
 
-def assert_log_story(caplog: Any, script: list[dict[str, Any]]) -> None:
-    """Assert each script row appears in captured logs, in order.
+def assert_log_story(
+    caplog: Any,
+    script: list[dict[str, Any]] | None = None,
+    *,
+    where: str | None = None,
+    beats: dict[str, list[str]] | None = None,
+    level: str = "INFO",
+) -> None:
+    """Fail naming the missing beat or fragment; do not swallow AssertionError.
 
-    Each row uses ``where`` (logger name or Class.method), ``beat``,
-    ``must_include`` fragments, and optional ``level`` (default INFO).
+    Keyword form (TFK-02)::
+
+        assert_log_story(caplog, where="HealthCheck.run",
+                         beats={"entry": ["probe=bootstrap"], "exit": ["status=ok"]})
+
+    List form (BOOT) remains supported::
+
+        assert_log_story(caplog, [{"where": "...", "beat": "exit", "must_include": [...]}])
 
     :param caplog: pytest ``caplog`` fixture. Example: test ``caplog`` argument
-    :param script: Ordered rows. Example: ``[{"where": "o365pop.cli", "beat": "exit", "must_include": ["status=ok"]}]``
+    :param script: Optional ordered rows. Example: ``[{"where": "o365pop.cli", "beat": "exit"}]``
+    :param where: Logger or Class.method. Example: ``"HealthCheck.run"``
+    :param beats: Beat → required fragments. Example: ``{"exit": ["status=ok"]}``
+    :param level: Expected level for keyword form. Example: ``"INFO"``
     :return: None
     :raises AssertionError: if a row is missing or out of order
     """
-    if not script:
-        raise AssertionError("log story script must not be empty")
+    rows = _normalize_script(script, where=where, beats=beats, level=level)
     search_from = 0
     records = list(caplog.records)
-    for index, row in enumerate(script):
-        where = str(row["where"])
+    for index, row in enumerate(rows):
+        row_where = str(row["where"])
         beat = str(row["beat"])
         fragments = [str(item) for item in row.get("must_include", [])]
         level_name = str(row.get("level", "INFO")).upper()
-        match_at = _find_row(records, search_from, where, beat, fragments, level_name)
+        match_at = _find_row(records, search_from, row_where, beat, fragments, level_name)
         if match_at is None:
             rendered = _render_records(records[search_from:])
             raise AssertionError(
-                f"log story row {index} not found (where={where!r} beat={beat!r} "
+                f"log story row {index} not found (where={row_where!r} beat={beat!r} "
                 f"must_include={fragments!r} level={level_name}):\n{rendered}"
             )
         search_from = match_at + 1
+
+
+def _normalize_script(
+    script: list[dict[str, Any]] | None,
+    *,
+    where: str | None,
+    beats: dict[str, list[str]] | None,
+    level: str,
+) -> list[dict[str, Any]]:
+    """Build an ordered script from keyword or list form.
+
+    :param script: List-form rows or None. Example: ``None``
+    :param where: Shared where for keyword form. Example: ``"HealthCheck.run"``
+    :param beats: Keyword-form beats. Example: ``{"exit": ["status=ok"]}``
+    :param level: Keyword-form level. Example: ``"INFO"``
+    :return: Ordered rows. Example: ``[{"where": "HealthCheck.run", "beat": "exit"}]``
+    :raises AssertionError: if neither form is provided
+    """
+    if beats is not None:
+        if not where:
+            raise AssertionError("where is required when beats is set")
+        return [
+            {"where": where, "beat": beat, "must_include": list(fragments), "level": level}
+            for beat, fragments in beats.items()
+        ]
+    if not script:
+        raise AssertionError("log story script must not be empty")
+    return script
 
 
 def _find_row(
@@ -68,7 +111,7 @@ def _find_row(
             continue
         if where not in text:
             continue
-        if f"| {beat} |" not in f"| {record.getMessage()} |" and beat not in record.getMessage():
+        if beat not in record.getMessage():
             continue
         if not all(fragment in text for fragment in fragments):
             continue
