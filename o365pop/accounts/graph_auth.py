@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -33,6 +35,7 @@ GRAPH_SCOPES = (
     "User.Read",
 )
 _EXPIRY_SKEW = timedelta(seconds=60)
+_DEVICE_FLOW_TIMEOUT_SECONDS = 30
 
 
 class GraphAuthService:
@@ -239,14 +242,62 @@ def _msal_device_login(client_id: str, tenant_id: str) -> TokenBundle:
     if not client_id:
         raise AuthenticationError("azure_client_id_missing")
     app = _public_app(client_id, tenant_id)
-    flow = app.initiate_device_flow(scopes=list(GRAPH_SCOPES))
-    if "user_code" not in flow:
-        raise AuthenticationError("device_code_rejected")
-    print(flow.get("message", f"Enter code {flow['user_code']} at {flow.get('verification_uri')}"))
+    flow = _initiate_device_flow(app)
+    emit_device_code_prompt(flow)
     result = app.acquire_token_by_device_flow(flow)
     bundle = _bundle_from_msal(result)
     logger.info("accounts.graph_auth._msal_device_login | exit | user=%s", bundle.get("username"))
     return bundle
+
+
+def emit_device_code_prompt(flow: dict) -> None:
+    """Write URL + user code to stderr. Never log the code.
+
+    :param flow: MSAL device-flow dict. Example: ``{"user_code": "ABCD1234", "verification_uri": "https://microsoft.com/link"}``
+    :return: None
+    :raises AuthenticationError: if user_code is missing
+    """
+    uri = str(flow.get("verification_uri") or "https://www.microsoft.com/link")
+    code = str(flow.get("user_code") or "")
+    if not code:
+        logger.error("accounts.graph_auth.emit_device_code_prompt | error | reason=missing_user_code")
+        raise AuthenticationError("device_code_rejected")
+    sys.stderr.write(
+        "\n=== Microsoft device-code login ===\n"
+        f"1. Open: {uri}\n"
+        f"2. Enter code: {code}\n"
+        "3. Sign in as the mailbox user. The test waits until you finish.\n\n"
+    )
+    sys.stderr.flush()
+
+
+def _initiate_device_flow(app: msal.PublicClientApplication) -> dict:
+    """Ask Microsoft for a device code; fail if the HTTP call hangs.
+
+    :param app: Public MSAL client. Example: ``PublicClientApplication(...)``
+    :return: Flow dict. Example: ``{"user_code": "ABCD1234", "verification_uri": "https://microsoft.com/link"}``
+    :raises AuthenticationError: on timeout or missing user_code
+    """
+    logger.info("accounts.graph_auth._initiate_device_flow | entry")
+    sys.stderr.write("Requesting a device code from Microsoft (up to 30s)…\n")
+    sys.stderr.flush()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(app.initiate_device_flow, scopes=list(GRAPH_SCOPES))
+        try:
+            flow = future.result(timeout=_DEVICE_FLOW_TIMEOUT_SECONDS)
+        except TimeoutError:
+            logger.error("accounts.graph_auth._initiate_device_flow | error | reason=timeout")
+            sys.stderr.write(
+                "Microsoft did not return a device code in 30s. "
+                "Check network / AZURE_CLIENT_ID, then re-run: make test-e2e\n"
+            )
+            sys.stderr.flush()
+            raise AuthenticationError("device_code_timeout") from None
+    if not isinstance(flow, dict) or "user_code" not in flow:
+        logger.error("accounts.graph_auth._initiate_device_flow | error | reason=rejected")
+        raise AuthenticationError("device_code_rejected")
+    logger.info("accounts.graph_auth._initiate_device_flow | exit | status=ok")
+    return flow
 
 
 def _msal_refresh(client_id: str, tenant_id: str, refresh_token: str) -> TokenBundle:

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+import sys
 import time
 from dataclasses import dataclass
 from email.message import EmailMessage
@@ -257,10 +258,11 @@ def _login_or_refresh(conn: sqlite3.Connection, settings: Settings) -> str:
         logger.info("live_session._login_or_refresh | exit | mode=reuse user=%s", username)
         return username
     logger.info("live_session._login_or_refresh | branch | capture=device_code")
-    print(
-        "\n=== o365pop live journey: complete device-code login in a browser ===\n",
-        flush=True,
+    sys.stderr.write(
+        "\nNo saved live session in var/live-e2e/. "
+        "Microsoft will print a URL and a short code next — open the URL, enter the code.\n\n"
     )
+    sys.stderr.flush()
     username = service.login_device_code()
     logger.info("live_session._login_or_refresh | exit | mode=device_code user=%s", username)
     return username
