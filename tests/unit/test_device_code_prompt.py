@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from o365pop.accounts.errors import AuthenticationError
-from o365pop.accounts.graph_auth import emit_device_code_prompt
+from o365pop.accounts.graph_auth import _bundle_from_msal, emit_device_code_prompt
 
 
 @pytest.mark.unit
@@ -34,3 +34,13 @@ def test_emit_device_code_prompt_missing_code_raises() -> None:
     """
     with pytest.raises(AuthenticationError, match="device_code_rejected"):
         emit_device_code_prompt({})
+
+
+@pytest.mark.unit
+def test_bundle_from_msal_device_flow_expired_is_device_code_rejected() -> None:
+    """Expired device code is not labeled as refresh failure.
+
+    :return: None
+    """
+    with pytest.raises(AuthenticationError, match="device_code_rejected"):
+        _bundle_from_msal({"error": "expired_token"}, flow="device_code")

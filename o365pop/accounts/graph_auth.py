@@ -245,7 +245,7 @@ def _msal_device_login(client_id: str, tenant_id: str) -> TokenBundle:
     flow = _initiate_device_flow(app)
     emit_device_code_prompt(flow)
     result = app.acquire_token_by_device_flow(flow)
-    bundle = _bundle_from_msal(result)
+    bundle = _bundle_from_msal(result, flow="device_code")
     logger.info("accounts.graph_auth._msal_device_login | exit | user=%s", bundle.get("username"))
     return bundle
 
@@ -266,7 +266,7 @@ def emit_device_code_prompt(flow: dict) -> None:
         "\n=== Microsoft device-code login ===\n"
         f"1. Open: {uri}\n"
         f"2. Enter code: {code}\n"
-        "3. Sign in as the mailbox user. The test waits until you finish.\n\n"
+        "3. Sign in as the mailbox user within 15 minutes.\n\n"
     )
     sys.stderr.flush()
 
@@ -312,20 +312,34 @@ def _msal_refresh(client_id: str, tenant_id: str, refresh_token: str) -> TokenBu
     logger.info("accounts.graph_auth._msal_refresh | entry")
     app = _public_app(client_id, tenant_id)
     result = app.acquire_token_by_refresh_token(refresh_token, scopes=list(GRAPH_SCOPES))
-    bundle = _bundle_from_msal(result)
+    bundle = _bundle_from_msal(result, flow="refresh")
     logger.info("accounts.graph_auth._msal_refresh | exit | has_access=%s", bool(bundle.get("access_token")))
     return bundle
 
 
-def _bundle_from_msal(result: dict) -> TokenBundle:
+def _bundle_from_msal(result: dict, *, flow: str = "refresh") -> TokenBundle:
     """Map an MSAL result dict to TokenBundle; raise on error.
 
     :param result: MSAL result. Example: ``{"access_token": "eyJ0...", "id_token_claims": {...}}``
+    :param flow: ``device_code`` or ``refresh``. Example: ``"device_code"``
     :return: Token bundle. Example: ``{"username": "denis@example.com", ...}``
     :raises AuthenticationError: if MSAL returned an error
     """
     if not result or result.get("error") or not result.get("access_token"):
-        raise AuthenticationError("refresh_token_rejected" if result.get("error") else "device_code_rejected")
+        reason = "device_code_rejected" if flow == "device_code" else "refresh_token_rejected"
+        msal_error = str((result or {}).get("error") or "empty")
+        logger.error(
+            "accounts.graph_auth._bundle_from_msal | error | reason=%s msal_error=%s",
+            reason,
+            msal_error,
+        )
+        if flow == "device_code":
+            sys.stderr.write(
+                f"Device-code login failed ({msal_error}). "
+                "Re-run make test-e2e and complete the new code within 15 minutes.\n"
+            )
+            sys.stderr.flush()
+        raise AuthenticationError(reason)
     claims = result.get("id_token_claims") or {}
     username = str(claims.get("preferred_username") or claims.get("upn") or result.get("username") or "")
     return TokenBundle(
