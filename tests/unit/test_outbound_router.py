@@ -8,10 +8,11 @@ from pathlib import Path
 import pytest
 
 from o365pop.db import connect, init_schema
-from o365pop.tosser.index import TossedMessage, record_tossed
+from o365pop.tosser.index import TossedMessage, record_tossed, upsert_chat_map
 from o365pop.tosser.outbound_router import OutboundRouter
 
 TEAMS_MESSAGE_ID = "<teams.mjqxg2a.abc@o365pop.local>"
+TEAMS_ADDRESS = "teams.mjqxg2a@o365pop.local"
 
 
 def _open_db(tmp_db_path: Path):
@@ -60,6 +61,25 @@ def test_route_in_reply_to_teams_message_id_is_teams_chat(tmp_db_path: Path) -> 
     conn.close()
     assert route.kind == "teams_chat"
     assert route.chat_id == "19:general"
+
+
+@pytest.mark.unit
+def test_route_to_chatmap_address_without_in_reply_to_is_teams_chat(tmp_db_path: Path) -> None:
+    """To teams.* via ChatMap, no In-Reply-To → teams_chat.
+
+    :return: None
+    """
+    conn = _open_db(tmp_db_path)
+    upsert_chat_map(conn, "19:general", TEAMS_ADDRESS, "mjqxg2a")
+    message = EmailMessage()
+    message["To"] = TEAMS_ADDRESS
+    message["Subject"] = "Teams: general"
+    message.set_content("Still on it")
+    route = OutboundRouter(conn).route(message)
+    conn.close()
+    assert route.kind == "teams_chat"
+    assert route.chat_id == "19:general"
+    assert message.get("In-Reply-To") is None
 
 
 @pytest.mark.unit
