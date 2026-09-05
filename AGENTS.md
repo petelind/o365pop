@@ -22,6 +22,8 @@ Project entry point for **Cursor** agents. Assume **Dr. Dobbs v2** when implemen
 
 ## ADE status
 
-DSP complete for **Cursor**. ESM/DTA/BSP/TFK-01–05 are in place. No CLAUDE.md / Copilot / Windsurf configs (single-IDE choice).
+DSP complete for **Cursor**. ESM/DTA/BSP/TFK-01–05 are in place. No Copilot / Windsurf configs (single-IDE choice).
 
-Next feature: **AUTH** (`docs/plans/AUTH_IMPLEMENTATION_PLAN.md`).
+Jedao iteration protocol (doctrine 2.0) lives in [`CLAUDE.md`](CLAUDE.md) — required by PIN-04 / MIT, not a Claude Code ADE export.
+
+Active iteration: [`docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`](docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml). Next implementable scenario: **AUTH** (S2).

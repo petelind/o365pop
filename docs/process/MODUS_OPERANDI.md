@@ -34,4 +34,4 @@ Do not generate Windsurf, Claude Code, or Copilot configs unless DSP-04 is re-ru
 | How to implement | matching `docs/plans/*_IMPLEMENTATION_PLAN.md` |
 | How to run | `make help` |
 
-Next feature after BOOT+TFK+DSP: **AUTH**.
+Active iteration: `docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`. Jedao protocol: `CLAUDE.md`. Next implementable scenario: **AUTH** (S2).
