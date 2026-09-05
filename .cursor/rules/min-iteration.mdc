@@ -27,7 +27,7 @@ Stack: no Django migrate, no Playwright. Gates are pytest / `make test` (`not li
 8. When the milestone has no open issues: open the iteration PR. Do not merge. MIN-05 Saga UAT on the iteration branch.
 9. Blockers → MIN-06 (BPE-09 workers + Saga regression). CLEAN → MIN-07. Merge and release only on explicit human **"merge"** / **"release"**.
 
-Active: `docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml` (milestone **#1**). S1–S6 done. S7 #7 DEP next.
+Active: `docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml` (milestone **#1**). S1–S7 implementation done. Iteration PR pending explicit push. Do not merge.
 
 ---
 

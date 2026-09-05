@@ -489,7 +489,7 @@ scenarios:
     feature_file_paths:
       - docs/features/act-1-bridge/deploy.feature
     system_dependencies: []
-    min_status: queued
+    min_status: done
     log_story_script:
       - {beat: config, where: "validate_bind", trigger: bind_ok, must_include: ["bind="]}
     log_tests:
