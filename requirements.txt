@@ -1,0 +1,15 @@
+# Runtime — versions compatible with Python 3.14 (SAO stack table)
+celery[redis]>=5.5
+redis>=5.2
+httpx>=0.28
+msal>=1.31
+aiosmtpd>=1.4
+twisted>=24.11
+cryptography>=44.0
+python-dotenv>=1.0
+
+# Dev / test
+pytest>=8.3
+pytest-asyncio>=0.25
+ruff>=0.9
+pre-commit>=4.0

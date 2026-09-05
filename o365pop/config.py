@@ -1,0 +1,114 @@
+"""Environment-backed settings (SAO §12)."""
+
+from __future__ import annotations
+
+import logging
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+@dataclass(frozen=True)
+class Settings:
+    """Runtime settings loaded from the environment.
+
+    :param azure_client_id: Public MSAL client id. Example: ``"11111111-2222-3333-4444-555555555555"``
+    :param azure_tenant_id: Tenant or ``common``. Example: ``"common"``
+    :param token_encryption_key: Fernet key for Graph tokens. Example: ``"gAAAAA..."``
+    :param mailbox_user: Local POP/SMTP user. Example: ``"denis"``
+    :param mailbox_password: Local POP/SMTP password (never the Microsoft password). Example: ``"local-only"``
+    :param pop3_bind: POP bind address. Example: ``"10.8.0.1"``
+    :param pop3_port: POP port. Example: ``110``
+    :param smtp_bind: SMTP bind address. Example: ``"10.8.0.1"``
+    :param smtp_port: SMTP port. Example: ``587``
+    :param allow_lan: Bind on LAN if true. Example: ``False``
+    :param celery_broker_url: Redis broker URL. Example: ``"redis://localhost:6379/0"``
+    :param celery_result_backend: Redis result URL. Example: ``"redis://localhost:6379/0"``
+    :param graph_poll_seconds: Inbound beat interval. Example: ``120``
+    :param spool_scan_seconds: Outbound beat interval. Example: ``30``
+    :param data_dir: SQLite / maildir parent. Example: ``Path("var")``
+    :param db_path: SQLite file. Example: ``Path("var/o365pop.sqlite3")``
+    :param log_dir: Log directory. Example: ``Path("logs")``
+    """
+
+    azure_client_id: str
+    azure_tenant_id: str
+    token_encryption_key: str
+    mailbox_user: str
+    mailbox_password: str
+    pop3_bind: str
+    pop3_port: int
+    smtp_bind: str
+    smtp_port: int
+    allow_lan: bool
+    celery_broker_url: str
+    celery_result_backend: str
+    graph_poll_seconds: int
+    spool_scan_seconds: int
+    data_dir: Path
+    db_path: Path
+    log_dir: Path
+
+
+def load_settings(env_file: Path | None = None) -> Settings:
+    """Load settings from ``.env`` and the process environment.
+
+    :param env_file: Optional dotenv path. Example: ``Path(".env")``
+    :return: Frozen settings. Example: ``Settings(azure_tenant_id="common", ...)``
+    :raises ValueError: if a numeric env var is not an int
+    """
+    load_dotenv(env_file or _PROJECT_ROOT / ".env", override=False)
+    logger.info("config.load_settings | entry | env_file=%s", env_file)
+    data_dir = Path(os.getenv("DATA_DIR", "var"))
+    db_path = Path(os.getenv("DB_PATH", str(data_dir / "o365pop.sqlite3")))
+    settings = Settings(
+        azure_client_id=os.getenv("AZURE_CLIENT_ID", ""),
+        azure_tenant_id=os.getenv("AZURE_TENANT_ID", "common"),
+        token_encryption_key=os.getenv("TOKEN_ENCRYPTION_KEY", ""),
+        mailbox_user=os.getenv("MAILBOX_USER", ""),
+        mailbox_password=os.getenv("MAILBOX_PASSWORD", ""),
+        pop3_bind=os.getenv("POP3_BIND", "127.0.0.1"),
+        pop3_port=_env_int("POP3_PORT", 110),
+        smtp_bind=os.getenv("SMTP_BIND", "127.0.0.1"),
+        smtp_port=_env_int("SMTP_PORT", 587),
+        allow_lan=os.getenv("ALLOW_LAN", "0") in ("1", "true", "TRUE"),
+        celery_broker_url=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
+        celery_result_backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+        graph_poll_seconds=_env_int("GRAPH_POLL_SECONDS", 120),
+        spool_scan_seconds=_env_int("SPOOL_SCAN_SECONDS", 30),
+        data_dir=data_dir,
+        db_path=db_path,
+        log_dir=Path(os.getenv("LOG_DIR", "logs")),
+    )
+    logger.info(
+        "config.load_settings | exit | data_dir=%s db_path=%s log_dir=%s pop3=%s:%s",
+        settings.data_dir,
+        settings.db_path,
+        settings.log_dir,
+        settings.pop3_bind,
+        settings.pop3_port,
+    )
+    return settings
+
+
+def _env_int(name: str, default: int) -> int:
+    """Parse an integer environment variable.
+
+    :param name: Variable name. Example: ``"POP3_PORT"``
+    :param default: Fallback. Example: ``110``
+    :return: Parsed int. Example: ``110``
+    :raises ValueError: if the value is present but not an integer
+    """
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
