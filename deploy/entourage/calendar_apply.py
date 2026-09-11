@@ -21,6 +21,7 @@ from deploy.entourage.calendar_snapshot import (
     SnapshotCalendar,
     SnapshotEvent,
 )
+from deploy.entourage.html_body import html_to_plain, is_html_body, merge_html
 from deploy.entourage.port import EntouragePort
 from deploy.entourage.uid_map import UidMap
 
@@ -53,9 +54,10 @@ def apply_calendar_snapshot(
     counts = _sync_calendar_projects(snapshot.calendars, entourage, uid_map)
     counts.update(_sync_events(snapshot.events, entourage, uid_map, attachments_root))
     logger.info(
-        "taskd.apply | exit | created=%s updated=%s kind=calendar",
+        "taskd.apply | exit | created=%s updated=%s failed=%s kind=calendar",
         counts["created"],
         counts["updated"],
+        counts.get("failed", 0),
     )
     return counts
 
@@ -164,17 +166,45 @@ def _sync_events(
     :param events: Snapshot events. Example: ``(SnapshotEvent(...),)``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
-    :return: Counts. Example: ``{"created": 1, "updated": 0, "deleted": 0}``
+    :return: Counts. Example: ``{"created": 1, "updated": 0, "deleted": 0, "failed": 0}``
     """
-    created = updated = 0
+    created = updated = failed = 0
     seen: set[str] = set()
     for row in events:
         seen.add(row.id)
-        created_one, updated_one = _upsert_event(row, entourage, uid_map, attachments_root)
+        created_one, updated_one, failed_one = _try_upsert_event(row, entourage, uid_map, attachments_root)
         created += created_one
         updated += updated_one
+        failed += failed_one
     deleted = _delete_missing_events(seen, entourage, uid_map)
-    return {"created": created, "updated": updated, "deleted": deleted}
+    return {"created": created, "updated": updated, "deleted": deleted, "failed": failed}
+
+
+def _try_upsert_event(
+    row: SnapshotEvent,
+    entourage: EntouragePort,
+    uid_map: UidMap,
+    attachments_root: Path | None,
+) -> tuple[int, int, int]:
+    """Create or update one event; log and continue when Entourage rejects it.
+
+    :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", ...)``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :param attachments_root: Attachment dir. Example: ``Path("calendar/attachments")``
+    :return: (created, updated, failed). Example: ``(0, 0, 1)``
+    """
+    try:
+        created, updated = _upsert_event(row, entourage, uid_map, attachments_root)
+        return created, updated, 0
+    except Exception as exc:
+        logger.error(
+            "taskd.apply | error | uid=%s subject=%s err=%s kind=calendar",
+            row.id,
+            row.subject,
+            exc,
+        )
+        return 0, 0, 1
 
 
 def _upsert_event(
@@ -214,15 +244,14 @@ def _event_properties(row: SnapshotEvent, uid_map: UidMap, entourage: EntourageP
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", subject="Standup", ...)``
     :param uid_map: Joins. Example: ``UidMap()``
-    :return: Properties. Example: ``{"subject": "Standup", "content": "o365pop-uid: evt-standup"}``
+    :return: Properties. Example: ``{"subject": "Standup", "content_plain": "o365pop-uid: evt-standup"}``
     """
     project_id = uid_map.calendars.get(row.calendar_id)
-    return {
+    props: dict[str, Any] = {
         "subject": row.subject,
         "start": parse_iso(row.start.date_time),
         "end": parse_iso(row.end.date_time),
         "location": row.location,
-        "content": _event_content(row),
         "project_id": project_id,
         "categories": _apply_category_names(row.categories, entourage),
         "reminder_minutes": row.reminder_minutes,
@@ -230,6 +259,8 @@ def _event_properties(row: SnapshotEvent, uid_map: UidMap, entourage: EntourageP
         "sensitivity": row.sensitivity,
         "to_recipients": [],
     }
+    props.update(_event_body_fields(row))
+    return props
 
 
 def _apply_category_names(names: tuple[str, ...], entourage: EntouragePort) -> list[str]:
@@ -246,19 +277,43 @@ def _apply_category_names(names: tuple[str, ...], entourage: EntouragePort) -> l
     return applied
 
 
-def _event_content(row: SnapshotEvent) -> str:
-    """Build Entourage event content with uid and attendee text.
+def _event_body_fields(row: SnapshotEvent) -> dict[str, str]:
+    """Build Entourage HTML or plain body fields from Graph content.
+
+    :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", body="<p>Hi</p>", ...)``
+    :return: HTML plus plain fallback. Example: ``{"content_html": "<html>...", "content_plain": "uid"}``
+    """
+    meta_plain, meta_html = _uid_attendee_lines(row)
+    graph_body = (row.body or "").strip()
+    graph_type = row.body_content_type or "text"
+    if not graph_body:
+        return {"content_plain": meta_plain} if meta_plain else {}
+    if is_html_body(graph_body, graph_type):
+        plain = "\n\n".join(part for part in (meta_plain, html_to_plain(graph_body)) if part)
+        return {"content_html": merge_html(meta_html, graph_body), "content_plain": plain}
+    if is_html_body(graph_body, "text"):
+        graph_body = html_to_plain(graph_body)
+    plain = "\n\n".join(part for part in (meta_plain, graph_body) if part)
+    return {"content_plain": plain}
+
+
+def _uid_attendee_lines(row: SnapshotEvent) -> tuple[str, str]:
+    """Uid and attendee metadata as plain and HTML fragments.
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", ...)``
-    :return: Content block. Example: ``"o365pop-uid: evt-standup"`` plus attendee line
+    :return: Plain block and HTML snippet. Example: ``("o365pop-uid: evt-standup", "<p>...</p>")``
     """
-    lines = [format_uid(row.id)]
+    uid_line = format_uid(row.id)
+    plain_lines = [uid_line]
+    html_parts = [f"<p>{uid_line}</p>"]
     if row.attendees:
         attendee_bits = []
         for att in row.attendees:
             attendee_bits.append(f"{att.name} <{att.email}> ({att.type})")
-        lines.append(f"{ATTENDEES_PREFIX} " + "; ".join(attendee_bits))
-    return "\n".join(lines)
+        att_line = f"{ATTENDEES_PREFIX} " + "; ".join(attendee_bits)
+        plain_lines.append(att_line)
+        html_parts.append(f"<p>{att_line}</p>")
+    return "\n".join(plain_lines), "".join(html_parts)
 
 
 def _local_event_newer(event: dict[str, Any], row: SnapshotEvent) -> bool:
@@ -365,7 +420,7 @@ def apply_pending_acks(acks_dir: Path, entourage: EntouragePort, uid_map: UidMap
         if format_uid(uid) in content:
             path.unlink(missing_ok=True)
             continue
-        entourage.update_event(local_key, {"content": _merge_uid(content, uid)})
+        entourage.update_event(local_key, {"content_plain": _merge_uid(content, uid)})
         uid_map.events[uid] = local_key
         path.unlink(missing_ok=True)
         stamped += 1
