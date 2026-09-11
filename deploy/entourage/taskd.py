@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 
 from deploy.entourage.apply import apply_snapshot
+from deploy.entourage.calendar_apply import apply_calendar_snapshot, apply_pending_acks
+from deploy.entourage.calendar_receipts import queue_calendar_receipts
 from deploy.entourage.calendar_snapshot import CalendarSnapshot, CalendarSnapshotError, parse_calendar_snapshot
 from deploy.entourage.port import EntouragePort
 from deploy.entourage.receipts import queue_receipts
@@ -67,18 +69,30 @@ def pull_calendar_snapshot(path: Path) -> CalendarSnapshot | None:
 
 
 def run_calendar_once(snapshot_path: Path, state_dir: Path, entourage: EntouragePort) -> dict[str, object]:
-    """Pull calendar snapshot. Apply lands in slice 4; unreachable is CAL1.8 no-op.
+    """Pull calendar snapshot, apply events, queue receipts. Unreachable is CAL1.8 no-op.
 
     :param snapshot_path: calendar snapshot.json. Example: ``Path("/storage/o365pop/calendar/snapshot.json")``
     :param state_dir: uid_map parent. Example: ``Path("/Users/denis/Library/o365pop")``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
-    :return: Status dict. Example: ``{"status": "ok", "created": 0, "updated": 0}``
+    :return: Status dict. Example: ``{"status": "ok", "created": 1, "updated": 0}``
     """
     snapshot = pull_calendar_snapshot(snapshot_path)
     if snapshot is None:
         return {"status": "unreachable", "created": 0, "updated": 0}
-    logger.info("taskd.apply | exit | created=0 updated=0 kind=calendar pending_apply=true")
-    return {"status": "ok", "created": 0, "updated": 0}
+    cal_root = snapshot_path.parent
+    uid_map = UidMap.load(state_dir / "uid_map.json")
+    try:
+        apply_pending_acks(cal_root / "acks", entourage, uid_map)
+        counts = apply_calendar_snapshot(
+            snapshot,
+            entourage,
+            uid_map,
+            attachments_root=cal_root / "attachments",
+        )
+        queued = queue_calendar_receipts(entourage, uid_map, snapshot, cal_root / "receipts")
+        return {"status": "ok", "receipts": queued, **counts}
+    finally:
+        uid_map.save(state_dir / "uid_map.json")
 
 
 def run_once(snapshot_path: Path, state_dir: Path, entourage: EntouragePort) -> dict[str, object]:

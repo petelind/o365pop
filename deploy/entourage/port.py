@@ -105,3 +105,54 @@ class EntouragePort(Protocol):
         :return: Updated record. Example: ``{"id": "20", "color": "orange"}``
         """
         ...
+
+    def list_events(self) -> list[dict[str, Any]]:
+        """Return calendar event records.
+
+        :return: Event dicts. Example: ``[{"id": "1", "subject": "Standup"}]``
+        """
+        ...
+
+    def create_event(self, properties: dict[str, Any]) -> dict[str, Any]:
+        """Create a calendar event.
+
+        :param properties: Event fields. Example: ``{"subject": "Standup"}``
+        :return: Created record. Example: ``{"id": "1", "subject": "Standup"}``
+        """
+        ...
+
+    def update_event(self, event_id: str, properties: dict[str, Any]) -> dict[str, Any]:
+        """Patch a calendar event.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :param properties: Fields to set. Example: ``{"subject": "Standup moved"}``
+        :return: Updated record. Example: ``{"id": "1", "subject": "Standup moved"}``
+        """
+        ...
+
+    def delete_event(self, event_id: str) -> None:
+        """Delete a calendar event.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :return: None
+        """
+        ...
+
+    def get_event_content(self, event_id: str) -> str:
+        """Return event notes/content.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :return: Content text. Example: ``"o365pop-uid: evt-standup"``
+        """
+        ...
+
+    def add_event_attachment(self, event_id: str, name: str, content_type: str, content: bytes) -> dict[str, Any]:
+        """Attach a file to an event.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :param name: File name. Example: ``"agenda.pdf"``
+        :param content_type: MIME type. Example: ``"application/pdf"``
+        :param content: Raw bytes. Example: ``b"%PDF-1.4"``
+        :return: Attachment record. Example: ``{"name": "agenda.pdf", "bytes": 32}``
+        """
+        ...

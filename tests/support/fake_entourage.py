@@ -24,6 +24,7 @@ class FakeEntourage:
     def __init__(self) -> None:
         self._next_id = 1
         self._tasks: list[dict[str, Any]] = []
+        self._events: list[dict[str, Any]] = []
         self._projects: list[dict[str, Any]] = []
         self._categories: list[dict[str, Any]] = [
             {
@@ -98,6 +99,8 @@ class FakeEntourage:
         :param name: Project name. Example: ``"Garden"``
         :return: Created record. Example: ``{"id": "2", "name": "Garden"}``
         """
+        if any(row.get("name") == name for row in self._projects):
+            raise RuntimeError(f"osascript rc=1 name must be unique: {name}")
         row = self._new_row({"name": name})
         self._projects.append(row)
         return copy.deepcopy(row)
@@ -145,6 +148,80 @@ class FakeEntourage:
         row = self._find(self._categories, category_id)
         row["name"] = name
         return copy.deepcopy(row)
+
+    def list_events(self) -> list[dict[str, Any]]:
+        """Copy of calendar events.
+
+        :return: Event dicts. Example: ``[{"id": "1", "subject": "Standup"}]``
+        """
+        return [copy.deepcopy(row) for row in self._events]
+
+    def create_event(self, properties: dict[str, Any]) -> dict[str, Any]:
+        """Append a calendar event.
+
+        :param properties: Event fields. Example: ``{"subject": "Standup"}``
+        :return: Created record. Example: ``{"id": "1", "subject": "Standup"}``
+        """
+        row = self._new_row(properties)
+        row.setdefault("content", "")
+        row.setdefault("categories", [])
+        row.setdefault("project_id", None)
+        row.setdefault("location", "")
+        row.setdefault("reminder_minutes", None)
+        row.setdefault("show_as", "busy")
+        row.setdefault("sensitivity", "normal")
+        row.setdefault("to_recipients", [])
+        row.setdefault("attachments", [])
+        self._events.append(row)
+        return copy.deepcopy(row)
+
+    def update_event(self, event_id: str, properties: dict[str, Any]) -> dict[str, Any]:
+        """Patch a calendar event in place.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :param properties: Fields to set. Example: ``{"subject": "Standup moved"}``
+        :return: Updated record. Example: ``{"id": "1", "subject": "Standup moved"}``
+        :raises KeyError: if the event is missing
+        """
+        row = self._find(self._events, event_id)
+        row.update(properties)
+        row["modification_date"] = _now()
+        return copy.deepcopy(row)
+
+    def delete_event(self, event_id: str) -> None:
+        """Remove a calendar event.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :return: None
+        """
+        self._events = [row for row in self._events if row["id"] != event_id]
+
+    def get_event_content(self, event_id: str) -> str:
+        """Return event notes/content.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :return: Content text. Example: ``"o365pop-uid: evt-standup"``
+        :raises KeyError: if the event is missing
+        """
+        row = self._find(self._events, event_id)
+        return str(row.get("content") or "")
+
+    def add_event_attachment(self, event_id: str, name: str, content_type: str, content: bytes) -> dict[str, Any]:
+        """Attach a file to an event.
+
+        :param event_id: Entourage id. Example: ``"1"``
+        :param name: File name. Example: ``"agenda.pdf"``
+        :param content_type: MIME type. Example: ``"application/pdf"``
+        :param content: Raw bytes. Example: ``b"%PDF-1.4"``
+        :return: Attachment record. Example: ``{"name": "agenda.pdf", "bytes": 32}``
+        :raises KeyError: if the event is missing
+        """
+        row = self._find(self._events, event_id)
+        attachments = list(row.get("attachments") or [])
+        record = {"name": name, "content_type": content_type, "bytes": len(content), "content": content}
+        attachments.append(record)
+        row["attachments"] = attachments
+        return copy.deepcopy(record)
 
     def set_category_color(self, category_id: str, color: str) -> dict[str, Any]:
         """Set category color.
