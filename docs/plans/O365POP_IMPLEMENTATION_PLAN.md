@@ -23,6 +23,7 @@ GitHub issues: create after `git init`, one issue per plan below, body = that pl
 | 5 | [TEAM_IMPLEMENTATION_PLAN.md](TEAM_IMPLEMENTATION_PLAN.md) | `teams.feature` | `pytest tests/unit/test_outbound_router.py tests/unit/test_reply_text.py tests/integration/test_teams_reply_in_reply_to.py tests/integration/test_teams_reply_to_address.py tests/integration/test_teams_reply_ordinary_mail.py tests/integration/test_teams_map_miss.py -x` |
 | 6 | [DEP_IMPLEMENTATION_PLAN.md](DEP_IMPLEMENTATION_PLAN.md) | `deploy.feature` | `pytest tests/unit/test_bind_config.py -x` then `pytest tests/ -x` |
 | 7 | [TASK_IMPLEMENTATION_PLAN.md](TASK_IMPLEMENTATION_PLAN.md) [#9](https://github.com/petelind/o365pop/issues/9) | `tasks.feature` | `pytest tests/unit/test_task_snapshot_parse.py tests/unit/test_task_category_color.py tests/unit/test_taskd_reachability_down.py tests/unit/test_task_project_map.py tests/unit/test_task_receipt_ignore_local.py tests/unit/test_task_snapshot_log_story_happy.py tests/unit/test_taskd_log_story_reject.py tests/unit/test_celery_app.py tests/integration/test_publish_task_snapshot.py tests/integration/test_task_snapshot_create.py tests/integration/test_task_receipt_patch.py tests/integration/test_sync_tasks_log_story_happy.py -x` |
+| 8 | [CAL_IMPLEMENTATION_PLAN.md](CAL_IMPLEMENTATION_PLAN.md) [#10](https://github.com/petelind/o365pop/issues/10) | `calendar.feature` | `pytest tests/unit/test_calendar_snapshot_parse.py tests/unit/test_calendar_project_map.py tests/unit/test_task_project_map.py tests/unit/test_calendar_category_apply.py tests/unit/test_taskd_reachability_down.py tests/unit/test_calendar_snapshot_log_story_happy.py tests/unit/test_calendar_log_story_reject.py tests/unit/test_celery_app.py tests/integration/test_publish_calendar_snapshot.py tests/integration/test_calendar_snapshot_create.py tests/integration/test_calendar_receipt_patch.py tests/integration/test_calendar_receipt_create.py tests/integration/test_calendar_attachment_sync.py tests/integration/test_sync_calendar_log_story_happy.py -x` |
 
 ---
 
@@ -46,7 +47,7 @@ Copied onto every feature plan as applicable:
 - Do NOT delete Graph mail on POP DELE
 - Do NOT `sendMail` a Teams-mapped reply
 - Do NOT put a real SMTP address on tossed Teams From/Reply-To
-- Do NOT call Graph from Mac `taskd`; do NOT write Entourage `Database`; do NOT mint Tasks as POP mail
+- Do NOT call Graph from Mac `taskd`; do NOT write Entourage `Database`; do NOT mint Tasks or Calendar events as POP mail
 
 ---
 
