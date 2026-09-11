@@ -67,7 +67,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 
 | Scenario | Phrase | Pytest / helper |
 |---|---|---|
-| TASK1.1 | snapshot task → Entourage Task + uid + Project + category | `tests/integration/test_task_snapshot_create.py` (not written) |
+| TASK1.1 | snapshot task → Entourage Task + uid + Project + category | `tests/integration/test_task_snapshot_create.py` |
 | TASK1.2 | missing To Do list → create Project | `tests/unit/test_task_project_map.py` (not written) |
 | TASK1.3 | renamed list → rename Project | `tests/unit/test_task_project_map.py` (not written) |
 | TASK1.4 | deleted list → delete synced Project | `tests/unit/test_task_project_map.py` (not written) |

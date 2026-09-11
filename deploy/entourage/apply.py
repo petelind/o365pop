@@ -1,35 +1,37 @@
-"""Apply a snapshot to Entourage: lists→Projects first (TASK1.2–1.4)."""
+"""Apply a snapshot to Entourage: Projects, categories, then Tasks."""
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from deploy.entourage.color_map import graph_color_to_entourage
 from deploy.entourage.port import EntouragePort
-from deploy.entourage.snapshot import Snapshot, SnapshotCategory, SnapshotList
+from deploy.entourage.snapshot import Snapshot, SnapshotCategory, SnapshotList, SnapshotTask
 from deploy.entourage.uid_map import UidMap
 
 logger = logging.getLogger(__name__)
 
 
 def apply_snapshot(snapshot: Snapshot, entourage: EntouragePort, uid_map: UidMap) -> dict[str, int]:
-    """Sync Projects from To Do lists. Categories and tasks land in later slices.
+    """Sync Projects, categories, and Tasks from a snapshot.
 
     :param snapshot: Parsed snapshot. Example: ``parse_snapshot({...})``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
-    :return: Counts. Example: ``{"projects_created": 1, "projects_renamed": 0, "projects_deleted": 0}``
+    :return: Counts. Example: ``{"created": 1, "updated": 0, "projects_created": 1}``
     """
-    logger.info("taskd.apply | entry | lists=%s categories=%s", len(snapshot.lists), len(snapshot.categories))
+    logger.info(
+        "taskd.apply | entry | lists=%s categories=%s tasks=%s",
+        len(snapshot.lists),
+        len(snapshot.categories),
+        len(snapshot.tasks),
+    )
     counts = _sync_projects(snapshot.lists, entourage, uid_map)
     counts.update(_sync_categories(snapshot.categories, entourage, uid_map))
-    logger.info(
-        "taskd.apply | exit | created=%s updated=%s deleted=%s",
-        counts["projects_created"],
-        counts["projects_renamed"],
-        counts["projects_deleted"],
-    )
+    counts.update(_sync_tasks(snapshot.tasks, entourage, uid_map))
+    logger.info("taskd.apply | exit | created=%s updated=%s", counts["created"], counts["updated"])
     return counts
 
 
@@ -198,5 +200,157 @@ def _project_by_id(projects: list[dict[str, Any]], project_id: str) -> dict[str,
     """
     for row in projects:
         if str(row.get("id")) == project_id:
+            return row
+    return None
+
+
+UID_PREFIX = "o365pop-uid:"
+
+
+def format_uid(graph_id: str) -> str:
+    """Build the join line stored in task content.
+
+    :param graph_id: Graph task id. Example: ``"task-q3"``
+    :return: Content line. Example: ``"o365pop-uid: task-q3"``
+    """
+    return f"{UID_PREFIX} {graph_id}"
+
+
+def parse_uid(content: str) -> str | None:
+    """Extract Graph id from Entourage content.
+
+    :param content: Task notes. Example: ``"o365pop-uid: task-q3\\n"``
+    :return: Graph id or None. Example: ``"task-q3"``
+    """
+    for line in (content or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith(UID_PREFIX):
+            uid = stripped.split(":", 1)[1].strip()
+            return uid or None
+    return None
+
+
+def parse_iso(value: str | None) -> datetime | None:
+    """Parse an ISO stamp to aware UTC datetime.
+
+    :param value: ISO string. Example: ``"2026-09-12T21:00:00Z"``
+    :return: Datetime or None. Example: ``datetime(2026, 9, 12, 21, 0, tzinfo=timezone.utc)``
+    """
+    if not value:
+        return None
+    text = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _sync_tasks(tasks: tuple[SnapshotTask, ...], entourage: EntouragePort, uid_map: UidMap) -> dict[str, int]:
+    """Create or update joined tasks; delete when Graph dropped them.
+
+    :param tasks: Snapshot tasks. Example: ``(SnapshotTask(id="task-q3", ...),)``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: Counts. Example: ``{"created": 1, "updated": 0, "deleted": 0}``
+    """
+    created = updated = 0
+    seen: set[str] = set()
+    for row in tasks:
+        seen.add(row.id)
+        created_one, updated_one = _upsert_task(row, entourage, uid_map)
+        created += created_one
+        updated += updated_one
+    deleted = _delete_missing_tasks(seen, entourage, uid_map)
+    return {"created": created, "updated": updated, "deleted": deleted}
+
+
+def _upsert_task(row: SnapshotTask, entourage: EntouragePort, uid_map: UidMap) -> tuple[int, int]:
+    """Create or update one task unless the local copy is newer.
+
+    :param row: Snapshot task. Example: ``SnapshotTask(id="task-q3", title="File the Q3 report", ...)``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: (created, updated). Example: ``(1, 0)``
+    """
+    properties = _task_properties(row, uid_map)
+    local_id = uid_map.tasks.get(row.id)
+    if local_id is None:
+        created = entourage.create_task(properties)
+        uid_map.tasks[row.id] = str(created["id"])
+        logger.info("taskd.apply | processing | uid=%s", row.id)
+        return 1, 0
+    current = _task_by_id(entourage.list_tasks(), local_id)
+    if current is not None and _local_newer(current, row):
+        logger.info("taskd.apply | branch | uid=%s skipped_local_newer=true", row.id)
+        return 0, 0
+    entourage.update_task(local_id, properties)
+    logger.info("taskd.apply | processing | uid=%s", row.id)
+    return 0, 1
+
+
+def _task_properties(row: SnapshotTask, uid_map: UidMap) -> dict[str, Any]:
+    """Build Entourage task fields from a snapshot row.
+
+    :param row: Snapshot task. Example: ``SnapshotTask(id="task-q3", title="File the Q3 report", ...)``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: Properties. Example: ``{"name": "File the Q3 report", "content": "o365pop-uid: task-q3"}``
+    """
+    return {
+        "name": row.title,
+        "due": parse_iso(row.due_datetime),
+        "content": format_uid(row.id),
+        "completed": row.status == "completed",
+        "project_id": uid_map.lists.get(row.list_id),
+        "categories": list(row.categories),
+    }
+
+
+def _local_newer(task: dict[str, Any], row: SnapshotTask) -> bool:
+    """True when Entourage modification_date is after Graph lastModified.
+
+    :param task: Local task. Example: ``{"modification_date": datetime(2026, 9, 11, 16, tzinfo=timezone.utc)}``
+    :param row: Snapshot task. Example: ``SnapshotTask(..., last_modified="2026-09-11T15:00:00Z")``
+    :return: Comparison. Example: ``True``
+    """
+    local = task.get("modification_date")
+    remote = parse_iso(row.last_modified)
+    if not isinstance(local, datetime) or remote is None:
+        return False
+    if local.tzinfo is None:
+        local = local.replace(tzinfo=timezone.utc)
+    return local > remote
+
+
+def _delete_missing_tasks(seen: set[str], entourage: EntouragePort, uid_map: UidMap) -> int:
+    """Delete Entourage tasks whose Graph id left the snapshot.
+
+    :param seen: Snapshot task ids. Example: ``{"task-q3"}``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: Deleted count. Example: ``1``
+    """
+    deleted = 0
+    for graph_id, local_id in list(uid_map.tasks.items()):
+        if graph_id in seen:
+            continue
+        entourage.delete_task(local_id)
+        del uid_map.tasks[graph_id]
+        deleted += 1
+        logger.info("taskd.apply | processing | task_delete uid=%s", graph_id)
+    return deleted
+
+
+def _task_by_id(tasks: list[dict[str, Any]], task_id: str) -> dict[str, Any] | None:
+    """Find a task record.
+
+    :param tasks: list_tasks() copy. Example: ``[{"id": "1"}]``
+    :param task_id: Entourage id. Example: ``"1"``
+    :return: Record or None. Example: ``{"id": "1", "name": "File the Q3 report"}``
+    """
+    for row in tasks:
+        if str(row.get("id")) == task_id:
             return row
     return None

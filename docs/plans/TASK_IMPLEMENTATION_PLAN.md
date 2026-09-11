@@ -233,8 +233,8 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ### TASK1.1 Tasks inbound (slice 5)
 
-- [ ] **5.1** Create/update FakeEntourage task: title, due, `o365pop-uid:`, Project, categories
-- [ ] **5.2** Red/green: `test_task_snapshot_create` + apply log story
+- [x] **5.1** Create/update FakeEntourage task: title, due, `o365pop-uid:`, Project, categories
+- [x] **5.2** Red/green: `test_task_snapshot_create` + apply log story
 - **Commit**: `feat(taskd): apply snapshot tasks into Entourage`
 
 ### TASK1.6–1.7 Receipts (slice 6)
