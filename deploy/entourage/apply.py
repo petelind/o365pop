@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from deploy.entourage.color_map import graph_color_to_entourage
 from deploy.entourage.port import EntouragePort
-from deploy.entourage.snapshot import Snapshot, SnapshotList
+from deploy.entourage.snapshot import Snapshot, SnapshotCategory, SnapshotList
 from deploy.entourage.uid_map import UidMap
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,9 @@ def apply_snapshot(snapshot: Snapshot, entourage: EntouragePort, uid_map: UidMap
     :param uid_map: Joins. Example: ``UidMap()``
     :return: Counts. Example: ``{"projects_created": 1, "projects_renamed": 0, "projects_deleted": 0}``
     """
-    logger.info("taskd.apply | entry | lists=%s", len(snapshot.lists))
+    logger.info("taskd.apply | entry | lists=%s categories=%s", len(snapshot.lists), len(snapshot.categories))
     counts = _sync_projects(snapshot.lists, entourage, uid_map)
+    counts.update(_sync_categories(snapshot.categories, entourage, uid_map))
     logger.info(
         "taskd.apply | exit | created=%s updated=%s deleted=%s",
         counts["projects_created"],
@@ -101,6 +103,90 @@ def _delete_missing_projects(seen: set[str], entourage: EntouragePort, uid_map: 
         deleted += 1
         logger.info("taskd.apply | processing | project_delete graph=%s", graph_id)
     return deleted
+
+
+def _sync_categories(
+    categories: tuple[SnapshotCategory, ...], entourage: EntouragePort, uid_map: UidMap
+) -> dict[str, int]:
+    """Create or join Outlook categories. Never delete built-ins.
+
+    :param categories: Snapshot categories. Example: ``(SnapshotCategory("cat-red", "Urgent", "preset1"),)``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: Counts. Example: ``{"categories_created": 1}``
+    """
+    created = 0
+    for row in categories:
+        created += _ensure_category(row, entourage, uid_map)
+    return {"categories_created": created}
+
+
+def _ensure_category(row: SnapshotCategory, entourage: EntouragePort, uid_map: UidMap) -> int:
+    """Join by Graph id or name; create when neither exists.
+
+    :param row: Snapshot category. Example: ``SnapshotCategory("cat-red", "Urgent", "preset1")``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: 1 if created else 0. Example: ``1``
+    """
+    color, _fallback = graph_color_to_entourage(row.color)
+    if row.id in uid_map.categories:
+        _refresh_joined_category(uid_map.categories[row.id], row.display_name, color, entourage)
+        return 0
+    existing = _category_by_name(entourage.list_categories(), row.display_name)
+    if existing is not None:
+        uid_map.categories[row.id] = str(existing["id"])
+        if not existing.get("builtin"):
+            entourage.set_category_color(str(existing["id"]), color)
+        return 0
+    created = entourage.create_category(row.display_name, color)
+    uid_map.categories[row.id] = str(created["id"])
+    logger.info("taskd.apply | processing | category_create name=%s color=%s", row.display_name, color)
+    return 1
+
+
+def _refresh_joined_category(category_id: str, name: str, color: str, entourage: EntouragePort) -> None:
+    """Rename and recolor a joined category. Skip color on built-ins.
+
+    :param category_id: Entourage id. Example: ``"20"``
+    :param name: Graph displayName. Example: ``"Urgent"``
+    :param color: Entourage color. Example: ``"orange"``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :return: None
+    """
+    current = _category_by_id(entourage.list_categories(), category_id)
+    if current is None:
+        return
+    if current.get("name") != name:
+        entourage.rename_category(category_id, name)
+    if not current.get("builtin") and current.get("color") != color:
+        entourage.set_category_color(category_id, color)
+
+
+def _category_by_name(categories: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+    """Find a category by display name.
+
+    :param categories: list_categories() copy. Example: ``[{"name": "Urgent"}]``
+    :param name: Display name. Example: ``"Urgent"``
+    :return: Record or None. Example: ``{"id": "20", "name": "Urgent"}``
+    """
+    for row in categories:
+        if row.get("name") == name:
+            return row
+    return None
+
+
+def _category_by_id(categories: list[dict[str, Any]], category_id: str) -> dict[str, Any] | None:
+    """Find a category by Entourage id.
+
+    :param categories: list_categories() copy. Example: ``[{"id": "20"}]``
+    :param category_id: Entourage id. Example: ``"20"``
+    :return: Record or None. Example: ``{"id": "20", "name": "Urgent"}``
+    """
+    for row in categories:
+        if str(row.get("id")) == category_id:
+            return row
+    return None
 
 
 def _project_by_id(projects: list[dict[str, Any]], project_id: str) -> dict[str, Any] | None:

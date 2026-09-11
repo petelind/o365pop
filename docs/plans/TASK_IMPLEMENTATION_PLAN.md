@@ -227,8 +227,8 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ### TASK1.5 Categories (slice 4)
 
-- [ ] **4.1** Create/rename/color Entourage category; do not delete built-ins
-- [ ] **4.2** Red/green: `test_task_category_color`
+- [x] **4.1** Create/rename/color Entourage category; do not delete built-ins
+- [x] **4.2** Red/green: `test_task_category_color`
 - **Commit**: `feat(taskd): map Outlook category colors`
 
 ### TASK1.1 Tasks inbound (slice 5)
