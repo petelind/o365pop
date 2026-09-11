@@ -199,15 +199,15 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 - [x] GitHub issue #9 with sections A–G + Lessons Learned inline
 - [x] Index issue number
-- [ ] Commit `docs(plan): TASK Entourage sync plan Refs #9`
-- [ ] `gh issue comment` with SHA + slice order
+- [x] Commit `docs(plan): TASK Entourage sync plan Refs #9` (`ad37d4a`)
+- [x] `gh issue comment` with SHA + slice order
 
 ### TASK1.8 + contracts (slice 1)
 
-- [ ] **1.1** Skeleton `deploy/entourage/{snapshot.py,color_map.py,taskd.py}` + `EntouragePort`
-- [ ] **1.2** `tests/support/fake_entourage.py`
-- [ ] **1.3** Red/green: parse, color map, reachability (no raise)
-- [ ] **1.4** Log story reject `taskd.pull` `reachability=down`
+- [x] **1.1** Skeleton `deploy/entourage/{snapshot.py,color_map.py,taskd.py}` + `EntouragePort`
+- [x] **1.2** `tests/support/fake_entourage.py`
+- [x] **1.3** Red/green: parse, color map, reachability (no raise)
+- [x] **1.4** Log story reject `taskd.pull` `reachability=down`
 - **Commit**: `feat(taskd): parse snapshot and survive unreachable proxy`
 
 ### Graph + publish (slice 2) — TASK snapshot producer
