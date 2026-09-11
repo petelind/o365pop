@@ -32,6 +32,18 @@ def test_module_level_celery_app_matches_name() -> None:
 
 
 @pytest.mark.unit
+def test_celery_beat_includes_sync_tasks() -> None:
+    """Beat runs sync_tasks every TASK_SNAPSHOT_SECONDS (default 60).
+
+    :return: None
+    """
+    app = create_celery_app(broker_url="memory://", result_backend="cache+memory://")
+    entry = app.conf.beat_schedule["sync-tasks"]
+    assert entry["task"] == "o365pop.sync.sync_tasks"
+    assert entry["schedule"] == 60.0
+
+
+@pytest.mark.unit
 def test_celery_beat_includes_scan_outbound_spool() -> None:
     """Beat runs scan_outbound_spool every SPOOL_SCAN_SECONDS.
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any
 
@@ -68,8 +69,9 @@ class HttpGraphAdapter:
         :return: None
         """
         logger.info("HttpGraphAdapter.send_mime | entry | size=%s", len(rfc822))
-        self._request("POST", "/me/sendMail", content=rfc822, content_type="text/plain")
-        logger.info("HttpGraphAdapter.send_mime | exit | status=ok")
+        payload = base64.b64encode(rfc822)
+        self._request("POST", "/me/sendMail", content=payload, content_type="text/plain")
+        logger.info("HttpGraphAdapter.send_mime | exit | status=ok encoded_len=%s", len(payload))
 
     def post_chat_message(self, chat_id: str, text: str) -> None:
         """POST /chats/{id}/messages.
@@ -81,6 +83,60 @@ class HttpGraphAdapter:
         logger.info("HttpGraphAdapter.post_chat_message | entry | chat_id=%s", chat_id)
         self._request("POST", f"/chats/{chat_id}/messages", json_body={"body": {"content": text}})
         logger.info("HttpGraphAdapter.post_chat_message | exit | status=ok")
+
+    def list_todo_lists(self) -> list[dict[str, Any]]:
+        """GET /me/todo/lists.
+
+        :return: Lists. Example: ``[{"id": "list-work"}]``
+        """
+        logger.info("HttpGraphAdapter.list_todo_lists | entry")
+        rows = list((self._get_json("/me/todo/lists").get("value") or []))
+        logger.info("HttpGraphAdapter.list_todo_lists | exit | count=%s", len(rows))
+        return rows
+
+    def list_todo_tasks(self, list_id: str) -> list[dict[str, Any]]:
+        """GET /me/todo/lists/{id}/tasks.
+
+        :param list_id: List id. Example: ``"list-work"``
+        :return: Tasks. Example: ``[{"id": "task-q3"}]``
+        """
+        logger.info("HttpGraphAdapter.list_todo_tasks | entry | list_id=%s", list_id)
+        rows = list((self._get_json(f"/me/todo/lists/{list_id}/tasks").get("value") or []))
+        logger.info("HttpGraphAdapter.list_todo_tasks | exit | count=%s", len(rows))
+        return rows
+
+    def list_master_categories(self) -> list[dict[str, Any]]:
+        """GET /me/outlook/masterCategories.
+
+        :return: Categories. Example: ``[{"id": "cat-red"}]``
+        """
+        logger.info("HttpGraphAdapter.list_master_categories | entry")
+        rows = list((self._get_json("/me/outlook/masterCategories").get("value") or []))
+        logger.info("HttpGraphAdapter.list_master_categories | exit | count=%s", len(rows))
+        return rows
+
+    def patch_todo_task(self, list_id: str, task_id: str, body: dict[str, Any]) -> None:
+        """PATCH /me/todo/lists/{listId}/tasks/{taskId}.
+
+        :param list_id: List id. Example: ``"list-work"``
+        :param task_id: Task id. Example: ``"task-q3"``
+        :param body: Patch object. Example: ``{"status": "completed"}``
+        :return: None
+        """
+        logger.info("HttpGraphAdapter.patch_todo_task | entry | list_id=%s task_id=%s", list_id, task_id)
+        self._request("PATCH", f"/me/todo/lists/{list_id}/tasks/{task_id}", json_body=body)
+        logger.info("HttpGraphAdapter.patch_todo_task | exit | status=ok")
+
+    def delete_todo_task(self, list_id: str, task_id: str) -> None:
+        """DELETE /me/todo/lists/{listId}/tasks/{taskId}.
+
+        :param list_id: List id. Example: ``"list-work"``
+        :param task_id: Task id. Example: ``"task-q3"``
+        :return: None
+        """
+        logger.info("HttpGraphAdapter.delete_todo_task | entry | list_id=%s task_id=%s", list_id, task_id)
+        self._request("DELETE", f"/me/todo/lists/{list_id}/tasks/{task_id}")
+        logger.info("HttpGraphAdapter.delete_todo_task | exit | status=ok")
 
     def _get_json(self, path: str) -> dict[str, Any]:
         """GET a JSON Graph resource.
@@ -129,7 +185,7 @@ def _http_chat_line(chat: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]
 
     :param chat: Chat resource. Example: ``{"id": "19:general", "topic": "general"}``
     :param row: Message resource. Example: ``{"id": "m1", "body": {"content": "Hi"}}``
-    :return: Tosser dict. Example: ``{"chat_id": "19:general", "body": "Hi"}``
+    :return: Tosser dict. Example: ``{"chat_id": "19:general", "body": "Hi", "body_content_type": "html"}``
     """
     user = (row.get("from") or {}).get("user") or {}
     body = row.get("body") if isinstance(row.get("body"), dict) else {}
@@ -139,5 +195,6 @@ def _http_chat_line(chat: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]
         "message_id": str(row.get("id") or ""),
         "from_name": str(user.get("displayName") or "Teams"),
         "body": str(body.get("content") or ""),
+        "body_content_type": str(body.get("contentType") or "text"),
         "chat_subject": str(chat.get("topic") or chat_id),
     }

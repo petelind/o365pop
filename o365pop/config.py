@@ -32,6 +32,8 @@ class Settings:
     :param celery_result_backend: Redis result URL. Example: ``"redis://localhost:6379/0"``
     :param graph_poll_seconds: Inbound beat interval. Example: ``120``
     :param spool_scan_seconds: Outbound beat interval. Example: ``30``
+    :param task_snapshot_seconds: Task snapshot beat interval. Example: ``60``
+    :param task_snapshot_path: Published snapshot file. Example: ``Path("var/tasks/snapshot.json")``
     :param data_dir: SQLite / maildir parent. Example: ``Path("var")``
     :param db_path: SQLite file. Example: ``Path("var/o365pop.sqlite3")``
     :param log_dir: Log directory. Example: ``Path("logs")``
@@ -51,6 +53,8 @@ class Settings:
     celery_result_backend: str
     graph_poll_seconds: int
     spool_scan_seconds: int
+    task_snapshot_seconds: int
+    task_snapshot_path: Path
     data_dir: Path
     db_path: Path
     log_dir: Path
@@ -82,6 +86,8 @@ def load_settings(env_file: Path | None = None) -> Settings:
         celery_result_backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
         graph_poll_seconds=_env_int("GRAPH_POLL_SECONDS", 120),
         spool_scan_seconds=_env_int("SPOOL_SCAN_SECONDS", 30),
+        task_snapshot_seconds=_env_int("TASK_SNAPSHOT_SECONDS", 60),
+        task_snapshot_path=Path(os.getenv("TASK_SNAPSHOT_PATH") or str(data_dir / "tasks" / "snapshot.json")),
         data_dir=data_dir,
         db_path=db_path,
         log_dir=Path(os.getenv("LOG_DIR", "logs")),

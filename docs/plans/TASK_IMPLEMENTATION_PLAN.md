@@ -212,11 +212,11 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ### Graph + publish (slice 2) — TASK snapshot producer
 
-- [ ] **2.1** GraphPort: `list_todo_lists`, `list_todo_tasks`, `list_master_categories`, `patch_todo_task`, `delete_todo_task`
-- [ ] **2.2** FileGraphAdapter + HttpGraphAdapter; fixtures `tests/fixtures/graph/TASK1.1-q3-report/` (`lists.json`, `tasks.json`, `categories.json`)
-- [ ] **2.3** `tosser.task_snapshot.publish` atomic write
-- [ ] **2.4** `sync_tasks` Celery + beat; `TASK_SNAPSHOT_SECONDS`; `.env.example`; `Settings`
-- [ ] **2.5** Red/green: `test_publish_task_snapshot` + publish log story
+- [x] **2.1** GraphPort: `list_todo_lists`, `list_todo_tasks`, `list_master_categories`, `patch_todo_task`, `delete_todo_task`
+- [x] **2.2** FileGraphAdapter + HttpGraphAdapter; fixtures `tests/fixtures/graph/TASK1.1-q3-report/` (`lists.json`, `tasks.json`, `categories.json`)
+- [x] **2.3** `tosser.task_snapshot.publish` atomic write
+- [x] **2.4** `sync_tasks` Celery + beat; `TASK_SNAPSHOT_SECONDS`; `.env.example`; `Settings`
+- [x] **2.5** Red/green: `test_publish_task_snapshot` + publish log story
 - **Commit**: `feat(sync): publish To Do snapshot for Mac taskd`
 
 ### TASK1.2–1.4 Projects (slice 3)

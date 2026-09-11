@@ -21,6 +21,7 @@ from o365pop.mailstore.spool import SpoolStore
 from o365pop.sync.sessions import SyncSession, mark_completed, mark_failed, start_session
 from o365pop.tosser.inbound import InboundTosser
 from o365pop.tosser.outbound_scanner import OutboundScanner
+from o365pop.tosser.task_snapshot import publish
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,25 @@ def sync_mailbox(self) -> dict:
         return _fail_closed(conn, session, "sync_failed")
 
 
+@celery_app.task(bind=True, name="o365pop.sync.sync_tasks")
+def sync_tasks(self) -> dict:
+    """Publish To Do snapshot then apply Mac receipts. Auth fail does not retry.
+
+    :return: Result dict. Example: ``{"status": "completed", "published": 1, "patched": 0}``
+    """
+    task_id = getattr(self.request, "id", None)
+    logger.info("sync.tasks.sync_tasks | entry | task_id=%s", task_id)
+    settings = load_settings()
+    conn = connect(settings.db_path)
+    init_schema(conn)
+    try:
+        return _run_task_sync(conn, settings)
+    except AuthenticationError:
+        logger.error("sync.tasks.sync_tasks | error | reason=auth_failed")
+        logger.info("sync.tasks.sync_tasks | exit | status=failed published=0 patched=0")
+        return {"status": "failed", "error": "auth_failed", "published": 0, "patched": 0}
+
+
 @celery_app.task(bind=True, name="o365pop.sync.scan_outbound_spool")
 def scan_outbound_spool(self) -> dict:
     """SMTP/TEAM: scan spool and sendMail or post chat.
@@ -64,6 +84,23 @@ def scan_outbound_spool(self) -> dict:
     conn = connect(settings.db_path)
     init_schema(conn)
     return _run_outbound_scan(conn, settings)
+
+
+def _run_task_sync(conn: sqlite3.Connection, settings: Settings) -> dict:
+    """Bearer → publish snapshot → apply receipts (receipts land in slice 6).
+
+    :param conn: sqlite connection. Example: ``connect(path)``
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: Success dict. Example: ``{"status": "completed", "published": 1, "patched": 0}``
+    """
+    service = _resolve_auth_service(conn, settings)
+    token = service.ensure_bearer()
+    graph = _resolve_graph(settings, token)
+    publish(graph, settings.task_snapshot_path)
+    # TODO: TASK slice 6 — apply receipts so LibreELEC PATCHes Graph (TASK1.6). Operators need patched counts.
+    patched = 0
+    logger.info("sync.tasks.sync_tasks | exit | published=1 patched=%s", patched)
+    return {"status": "completed", "published": 1, "patched": patched}
 
 
 def _run_outbound_scan(conn: sqlite3.Connection, settings: Settings) -> dict:

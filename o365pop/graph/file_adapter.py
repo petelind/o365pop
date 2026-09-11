@@ -80,6 +80,72 @@ class FileGraphAdapter:
         path.write_text(json.dumps(rows))
         logger.info("FileGraphAdapter.post_chat_message | exit | status=recorded")
 
+    def list_todo_lists(self) -> list[dict[str, Any]]:
+        """Load lists.json.
+
+        :return: To Do lists. Example: ``[{"id": "list-work", "displayName": "Work"}]``
+        """
+        logger.info("FileGraphAdapter.list_todo_lists | entry | case=%s", self._case_dir)
+        rows = _json_value(self._case_dir / "lists.json")
+        logger.info("FileGraphAdapter.list_todo_lists | exit | count=%s", len(rows))
+        return rows
+
+    def list_todo_tasks(self, list_id: str) -> list[dict[str, Any]]:
+        """Load tasks.json filtered by listId.
+
+        :param list_id: To Do list id. Example: ``"list-work"``
+        :return: Tasks. Example: ``[{"id": "task-q3", "title": "File the Q3 report"}]``
+        """
+        logger.info("FileGraphAdapter.list_todo_tasks | entry | list_id=%s", list_id)
+        rows = [row for row in _json_value(self._case_dir / "tasks.json") if str(row.get("listId") or "") == list_id]
+        logger.info("FileGraphAdapter.list_todo_tasks | exit | count=%s", len(rows))
+        return rows
+
+    def list_master_categories(self) -> list[dict[str, Any]]:
+        """Load categories.json.
+
+        :return: Categories. Example: ``[{"id": "cat-red", "color": "preset1"}]``
+        """
+        logger.info("FileGraphAdapter.list_master_categories | entry")
+        rows = _json_value(self._case_dir / "categories.json")
+        logger.info("FileGraphAdapter.list_master_categories | exit | count=%s", len(rows))
+        return rows
+
+    def patch_todo_task(self, list_id: str, task_id: str, body: dict[str, Any]) -> None:
+        """Record a PATCH under patched.json.
+
+        :param list_id: List id. Example: ``"list-work"``
+        :param task_id: Task id. Example: ``"task-q3"``
+        :param body: Patch object. Example: ``{"status": "completed"}``
+        :return: None
+        """
+        logger.info("FileGraphAdapter.patch_todo_task | entry | list_id=%s task_id=%s", list_id, task_id)
+        _append_json(self._case_dir / "patched.json", {"listId": list_id, "taskId": task_id, "body": body})
+        logger.info("FileGraphAdapter.patch_todo_task | exit | status=recorded")
+
+    def delete_todo_task(self, list_id: str, task_id: str) -> None:
+        """Record a DELETE under deleted.json.
+
+        :param list_id: List id. Example: ``"list-work"``
+        :param task_id: Task id. Example: ``"task-q3"``
+        :return: None
+        """
+        logger.info("FileGraphAdapter.delete_todo_task | entry | list_id=%s task_id=%s", list_id, task_id)
+        _append_json(self._case_dir / "deleted.json", {"listId": list_id, "taskId": task_id})
+        logger.info("FileGraphAdapter.delete_todo_task | exit | status=recorded")
+
+
+def _append_json(path: Path, row: dict[str, Any]) -> None:
+    """Append one object to a JSON array file.
+
+    :param path: Target file. Example: ``Path("patched.json")``
+    :param row: Record. Example: ``{"taskId": "task-q3"}``
+    :return: None
+    """
+    rows = json.loads(path.read_text()) if path.is_file() else []
+    rows.append(row)
+    path.write_text(json.dumps(rows))
+
 
 def _json_value(path: Path) -> list[dict[str, Any]]:
     """Read a Graph-like ``{value: [...]}`` file; missing file is empty.
@@ -100,7 +166,7 @@ def _flatten_chat(row: dict[str, Any], topics: dict[Any, Any]) -> dict[str, Any]
 
     :param row: messages.json item. Example: ``{"id": "teams-msg-1", "chatId": "19:general"}``
     :param topics: chat id → topic. Example: ``{"19:general": "general"}``
-    :return: Flat dict. Example: ``{"chat_id": "19:general", "body": "Ship it"}``
+    :return: Flat dict. Example: ``{"chat_id": "19:general", "body": "Ship it", "body_content_type": "text"}``
     """
     chat_id = str(row.get("chatId") or row.get("chat_id") or "")
     user = (row.get("from") or {}).get("user") or {}
@@ -110,5 +176,6 @@ def _flatten_chat(row: dict[str, Any], topics: dict[Any, Any]) -> dict[str, Any]
         "message_id": str(row.get("id") or ""),
         "from_name": str(user.get("displayName") or "Teams"),
         "body": str(body.get("content") or row.get("body") or ""),
+        "body_content_type": str(body.get("contentType") or "text"),
         "chat_subject": str(topics.get(chat_id) or chat_id),
     }
