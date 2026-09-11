@@ -1,0 +1,10 @@
+{
+  "value": [
+    {
+      "id": "cal-work",
+      "displayName": "Work",
+      "isDefaultCalendar": true,
+      "canEdit": true
+    }
+  ]
+}

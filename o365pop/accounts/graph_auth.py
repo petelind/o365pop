@@ -33,9 +33,14 @@ GRAPH_SCOPES = (
     "Mail.Send",
     "Chat.ReadWrite",
     "User.Read",
+    "Tasks.ReadWrite",
+    "Calendars.ReadWrite",
+    "MailboxSettings.Read",
 )
 _EXPIRY_SKEW = timedelta(seconds=60)
 _DEVICE_FLOW_TIMEOUT_SECONDS = 30
+LOOPBACK_PORT = 8400
+LOOPBACK_REDIRECT = f"http://localhost:{LOOPBACK_PORT}"
 
 
 class GraphAuthService:
@@ -209,6 +214,16 @@ def live_device_code_port(client_id: str, tenant_id: str) -> DeviceCodePort:
     return SimpleNamespace(login=lambda: _msal_device_login(client_id, tenant_id))
 
 
+def live_interactive_port(client_id: str, tenant_id: str) -> DeviceCodePort:
+    """MSAL loopback PKCE port (operator Mac; work tenants block device-code).
+
+    :param client_id: Azure app id. Example: ``"11111111-2222-3333-4444-555555555555"``
+    :param tenant_id: Tenant or common. Example: ``"common"``
+    :return: Port with ``login``. Example: ``SimpleNamespace(login=...)``
+    """
+    return SimpleNamespace(login=lambda: _msal_interactive_login(client_id, tenant_id))
+
+
 def live_msal_port(client_id: str, tenant_id: str) -> MsalPort:
     """MSAL refresh port (production).
 
@@ -247,6 +262,31 @@ def _msal_device_login(client_id: str, tenant_id: str) -> TokenBundle:
     result = app.acquire_token_by_device_flow(flow)
     bundle = _bundle_from_msal(result, flow="device_code")
     logger.info("accounts.graph_auth._msal_device_login | exit | user=%s", bundle.get("username"))
+    return bundle
+
+
+def _msal_interactive_login(client_id: str, tenant_id: str) -> TokenBundle:
+    """Run MSAL loopback PKCE. Opens a browser; never logs tokens.
+
+    :param client_id: Azure app id. Example: ``"11111111-2222-3333-4444-555555555555"``
+    :param tenant_id: Tenant or common. Example: ``"common"``
+    :return: Token bundle. Example: ``{"username": "denis@example.com", ...}``
+    :raises AuthenticationError: if Microsoft rejects the flow
+    """
+    logger.info("accounts.graph_auth._msal_interactive_login | entry | tenant=%s", tenant_id)
+    if not client_id:
+        raise AuthenticationError("azure_client_id_missing")
+    app = _public_app(client_id, tenant_id)
+    sys.stderr.write(
+        "\n=== Microsoft interactive login ===\n"
+        f"Opening a browser (redirect {LOOPBACK_REDIRECT}).\n"
+        "Sign in and accept Mail.Read, Mail.Send, Chat.ReadWrite, User.Read, "
+        "Tasks.ReadWrite, MailboxSettings.Read.\n\n"
+    )
+    sys.stderr.flush()
+    result = app.acquire_token_interactive(scopes=list(GRAPH_SCOPES), port=LOOPBACK_PORT)
+    bundle = _bundle_from_msal(result, flow="interactive")
+    logger.info("accounts.graph_auth._msal_interactive_login | exit | user=%s", bundle.get("username"))
     return bundle
 
 
@@ -321,24 +361,20 @@ def _bundle_from_msal(result: dict, *, flow: str = "refresh") -> TokenBundle:
     """Map an MSAL result dict to TokenBundle; raise on error.
 
     :param result: MSAL result. Example: ``{"access_token": "eyJ0...", "id_token_claims": {...}}``
-    :param flow: ``device_code`` or ``refresh``. Example: ``"device_code"``
+    :param flow: ``device_code``, ``interactive``, or ``refresh``. Example: ``"interactive"``
     :return: Token bundle. Example: ``{"username": "denis@example.com", ...}``
     :raises AuthenticationError: if MSAL returned an error
     """
     if not result or result.get("error") or not result.get("access_token"):
-        reason = "device_code_rejected" if flow == "device_code" else "refresh_token_rejected"
+        reason = _failure_reason(flow)
         msal_error = str((result or {}).get("error") or "empty")
+        description = str((result or {}).get("error_description") or "")
         logger.error(
             "accounts.graph_auth._bundle_from_msal | error | reason=%s msal_error=%s",
             reason,
             msal_error,
         )
-        if flow == "device_code":
-            sys.stderr.write(
-                f"Device-code login failed ({msal_error}). "
-                "Re-run make test-e2e and complete the new code within 15 minutes.\n"
-            )
-            sys.stderr.flush()
+        _emit_login_failure(flow, msal_error, description)
         raise AuthenticationError(reason)
     claims = result.get("id_token_claims") or {}
     username = str(claims.get("preferred_username") or claims.get("upn") or result.get("username") or "")
@@ -349,3 +385,40 @@ def _bundle_from_msal(result: dict, *, flow: str = "refresh") -> TokenBundle:
         username=username,
         oid=str(claims.get("oid") or ""),
     )
+
+
+def _failure_reason(flow: str) -> str:
+    """Map an MSAL flow name to AuthenticationError text.
+
+    :param flow: ``device_code``, ``interactive``, or ``refresh``. Example: ``"interactive"``
+    :return: Reason. Example: ``"login_rejected"``
+    """
+    if flow == "refresh":
+        return "refresh_token_rejected"
+    if flow == "device_code":
+        return "device_code_rejected"
+    return "login_rejected"
+
+
+def _emit_login_failure(flow: str, msal_error: str, description: str) -> None:
+    """Write a safe stderr hint. Never include tokens.
+
+    :param flow: MSAL path. Example: ``"interactive"``
+    :param msal_error: Azure error code. Example: ``"invalid_grant"``
+    :param description: Azure description. Example: ``"AADSTS65001: ..."``
+    :return: None
+    """
+    hint = description.split("\r")[0].split("\n")[0][:240]
+    if flow == "interactive":
+        sys.stderr.write(
+            f"Interactive login failed ({msal_error}). {hint}\n"
+            "If this is AADSTS65001, add Mail.Read, Mail.Send, Chat.ReadWrite, "
+            "Tasks.ReadWrite, MailboxSettings.Read "
+            "on the Azure app and retry python -m o365pop login --interactive.\n"
+        )
+    elif flow == "device_code":
+        sys.stderr.write(
+            f"Device-code login failed ({msal_error}). "
+            "Work tenants often block this; use: python -m o365pop login --interactive\n"
+        )
+    sys.stderr.flush()

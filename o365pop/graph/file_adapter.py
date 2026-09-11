@@ -134,6 +134,131 @@ class FileGraphAdapter:
         _append_json(self._case_dir / "deleted.json", {"listId": list_id, "taskId": task_id})
         logger.info("FileGraphAdapter.delete_todo_task | exit | status=recorded")
 
+    def list_calendars(self) -> list[dict[str, Any]]:
+        """Load calendars.json.
+
+        :return: Calendars. Example: ``[{"id": "cal-work", "displayName": "Work"}]``
+        """
+        logger.info("FileGraphAdapter.list_calendars | entry | case=%s", self._case_dir)
+        rows = _json_value(self._case_dir / "calendars.json")
+        logger.info("FileGraphAdapter.list_calendars | exit | count=%s", len(rows))
+        return rows
+
+    def list_calendar_view(self, calendar_id: str, start: str, end: str) -> list[dict[str, Any]]:
+        """Load events.json filtered by calendarId.
+
+        :param calendar_id: Graph calendar id. Example: ``"cal-work"``
+        :param start: Window start ISO. Example: ``"2026-08-12T00:00:00Z"``
+        :param end: Window end ISO. Example: ``"2027-03-10T00:00:00Z"``
+        :return: Events. Example: ``[{"id": "evt-standup", "subject": "Standup"}]``
+        """
+        logger.info("FileGraphAdapter.list_calendar_view | entry | calendar_id=%s", calendar_id)
+        rows = [
+            row
+            for row in _json_value(self._case_dir / "events.json")
+            if str(row.get("calendarId") or row.get("calendar_id") or "") == calendar_id
+        ]
+        logger.info("FileGraphAdapter.list_calendar_view | exit | count=%s", len(rows))
+        return rows
+
+    def create_event(self, calendar_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Record a POST under created_events.json.
+
+        :param calendar_id: Target calendar. Example: ``"cal-work"``
+        :param body: Event object. Example: ``{"subject": "Dentist"}``
+        :return: Created event with synthetic id. Example: ``{"id": "evt-created-1"}``
+        """
+        logger.info("FileGraphAdapter.create_event | entry | calendar_id=%s", calendar_id)
+        created_id = f"evt-created-{len(_json_value(self._case_dir / 'created_events.json')) + 1}"
+        row = {"id": created_id, "calendarId": calendar_id, **body}
+        _append_json(self._case_dir / "created_events.json", row)
+        logger.info("FileGraphAdapter.create_event | exit | event_id=%s", created_id)
+        return row
+
+    def patch_event(self, event_id: str, body: dict[str, Any]) -> None:
+        """Record a PATCH under calendar_patched.json.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :param body: Patch object. Example: ``{"subject": "Standup moved"}``
+        :return: None
+        """
+        logger.info("FileGraphAdapter.patch_event | entry | event_id=%s", event_id)
+        _append_json(self._case_dir / "calendar_patched.json", {"eventId": event_id, "body": body})
+        logger.info("FileGraphAdapter.patch_event | exit | status=recorded")
+
+    def delete_event(self, event_id: str) -> None:
+        """Record a DELETE under calendar_deleted.json.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :return: None
+        """
+        logger.info("FileGraphAdapter.delete_event | entry | event_id=%s", event_id)
+        _append_json(self._case_dir / "calendar_deleted.json", {"eventId": event_id})
+        logger.info("FileGraphAdapter.delete_event | exit | status=recorded")
+
+    def list_event_attachments(self, event_id: str) -> list[dict[str, Any]]:
+        """Load attachment metadata from events.json or attachments.json.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :return: Attachment dicts. Example: ``[{"id": "att-1", "name": "agenda.pdf"}]``
+        """
+        logger.info("FileGraphAdapter.list_event_attachments | entry | event_id=%s", event_id)
+        for row in _json_value(self._case_dir / "events.json"):
+            if str(row.get("id") or "") == event_id:
+                attachments = row.get("attachments") or []
+                if isinstance(attachments, list):
+                    logger.info("FileGraphAdapter.list_event_attachments | exit | count=%s", len(attachments))
+                    return list(attachments)
+        rows = [
+            row
+            for row in _json_value(self._case_dir / "attachments.json")
+            if str(row.get("eventId") or row.get("event_id") or "") == event_id
+        ]
+        logger.info("FileGraphAdapter.list_event_attachments | exit | count=%s", len(rows))
+        return rows
+
+    def get_event_attachment_bytes(self, event_id: str, attachment_id: str) -> bytes:
+        """Load bytes from attachments/{eventId}/{name}.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :param attachment_id: Attachment id. Example: ``"att-1"``
+        :return: File bytes. Example: ``b"%PDF-1.4"``
+        """
+        logger.info(
+            "FileGraphAdapter.get_event_attachment_bytes | entry | event_id=%s attachment_id=%s",
+            event_id,
+            attachment_id,
+        )
+        name = attachment_id
+        for row in self.list_event_attachments(event_id):
+            if str(row.get("id") or "") == attachment_id:
+                name = str(row.get("name") or attachment_id)
+                break
+        path = self._case_dir / "attachments" / event_id / name
+        data = path.read_bytes()
+        logger.info("FileGraphAdapter.get_event_attachment_bytes | exit | bytes=%s", len(data))
+        return data
+
+    def create_event_attachment(self, event_id: str, name: str, content_type: str, content: bytes) -> dict[str, Any]:
+        """Record attachment POST under calendar_attachments_posted.json.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :param name: File name. Example: ``"agenda.pdf"``
+        :param content_type: MIME type. Example: ``"application/pdf"``
+        :param content: Raw bytes. Example: ``b"%PDF-1.4"``
+        :return: Created attachment. Example: ``{"id": "att-post-1", "name": "agenda.pdf"}``
+        """
+        logger.info("FileGraphAdapter.create_event_attachment | entry | event_id=%s name=%s", event_id, name)
+        posted = _json_value(self._case_dir / "calendar_attachments_posted.json")
+        att_id = f"att-post-{len(posted) + 1}"
+        dest = self._case_dir / "attachments" / event_id / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+        row = {"id": att_id, "eventId": event_id, "name": name, "contentType": content_type, "bytes": len(content)}
+        _append_json(self._case_dir / "calendar_attachments_posted.json", row)
+        logger.info("FileGraphAdapter.create_event_attachment | exit | attachment_id=%s", att_id)
+        return row
+
 
 def _append_json(path: Path, row: dict[str, Any]) -> None:
     """Append one object to a JSON array file.

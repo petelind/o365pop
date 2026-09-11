@@ -1,0 +1,45 @@
+{
+  "value": [
+    {
+      "id": "evt-standup",
+      "calendarId": "cal-work",
+      "subject": "Standup",
+      "start": {
+        "dateTime": "2026-09-12T13:00:00.0000000",
+        "timeZone": "UTC"
+      },
+      "end": {
+        "dateTime": "2026-09-12T13:30:00.0000000",
+        "timeZone": "UTC"
+      },
+      "isAllDay": false,
+      "location": {
+        "displayName": "Room A"
+      },
+      "bodyPreview": "Daily",
+      "categories": ["Work"],
+      "attendees": [
+        {
+          "type": "required",
+          "emailAddress": {
+            "name": "Ada Lovelace",
+            "address": "ada@contoso.com"
+          }
+        }
+      ],
+      "isOrganizer": true,
+      "type": "singleInstance",
+      "showAs": "busy",
+      "sensitivity": "normal",
+      "reminderMinutesBeforeStart": 15,
+      "lastModifiedDateTime": "2026-09-11T15:00:00Z",
+      "attachments": [
+        {
+          "id": "att-agenda",
+          "name": "agenda.pdf",
+          "contentType": "application/pdf"
+        }
+      ]
+    }
+  ]
+}

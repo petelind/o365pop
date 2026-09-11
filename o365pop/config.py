@@ -34,6 +34,10 @@ class Settings:
     :param spool_scan_seconds: Outbound beat interval. Example: ``30``
     :param task_snapshot_seconds: Task snapshot beat interval. Example: ``60``
     :param task_snapshot_path: Published snapshot file. Example: ``Path("var/tasks/snapshot.json")``
+    :param cal_snapshot_seconds: Calendar snapshot beat interval. Example: ``60``
+    :param cal_snapshot_path: Published calendar snapshot. Example: ``Path("var/calendar/snapshot.json")``
+    :param cal_window_past_days: calendarView past window. Example: ``30``
+    :param cal_window_future_days: calendarView future window. Example: ``180``
     :param data_dir: SQLite / maildir parent. Example: ``Path("var")``
     :param db_path: SQLite file. Example: ``Path("var/o365pop.sqlite3")``
     :param log_dir: Log directory. Example: ``Path("logs")``
@@ -55,6 +59,10 @@ class Settings:
     spool_scan_seconds: int
     task_snapshot_seconds: int
     task_snapshot_path: Path
+    cal_snapshot_seconds: int
+    cal_snapshot_path: Path
+    cal_window_past_days: int
+    cal_window_future_days: int
     data_dir: Path
     db_path: Path
     log_dir: Path
@@ -88,6 +96,10 @@ def load_settings(env_file: Path | None = None) -> Settings:
         spool_scan_seconds=_env_int("SPOOL_SCAN_SECONDS", 30),
         task_snapshot_seconds=_env_int("TASK_SNAPSHOT_SECONDS", 60),
         task_snapshot_path=Path(os.getenv("TASK_SNAPSHOT_PATH") or str(data_dir / "tasks" / "snapshot.json")),
+        cal_snapshot_seconds=_env_int("CAL_SNAPSHOT_SECONDS", 60),
+        cal_snapshot_path=Path(os.getenv("CAL_SNAPSHOT_PATH") or str(data_dir / "calendar" / "snapshot.json")),
+        cal_window_past_days=_env_int("CAL_WINDOW_PAST_DAYS", 30),
+        cal_window_future_days=_env_int("CAL_WINDOW_FUTURE_DAYS", 180),
         data_dir=data_dir,
         db_path=db_path,
         log_dir=Path(os.getenv("LOG_DIR", "logs")),

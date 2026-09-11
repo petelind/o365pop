@@ -19,6 +19,8 @@ from o365pop.graph.port import GraphPort
 from o365pop.mailstore.maildir import MaildirStore
 from o365pop.mailstore.spool import SpoolStore
 from o365pop.sync.sessions import SyncSession, mark_completed, mark_failed, start_session
+from o365pop.tosser.calendar_snapshot import apply_receipts as apply_calendar_receipts
+from o365pop.tosser.calendar_snapshot import publish as publish_calendar
 from o365pop.tosser.inbound import InboundTosser
 from o365pop.tosser.outbound_scanner import OutboundScanner
 from o365pop.tosser.task_snapshot import apply_receipts, publish
@@ -73,6 +75,25 @@ def sync_tasks(self) -> dict:
         return {"status": "failed", "error": "auth_failed", "published": 0, "patched": 0}
 
 
+@celery_app.task(bind=True, name="o365pop.sync.sync_calendar")
+def sync_calendar(self) -> dict:
+    """Publish calendar snapshot then apply Mac receipts. Auth fail does not retry.
+
+    :return: Result dict. Example: ``{"status": "completed", "published": 1, "patched": 0, "created": 0}``
+    """
+    task_id = getattr(self.request, "id", None)
+    logger.info("sync.tasks.sync_calendar | entry | task_id=%s", task_id)
+    settings = load_settings()
+    conn = connect(settings.db_path)
+    init_schema(conn)
+    try:
+        return _run_calendar_sync(conn, settings)
+    except AuthenticationError:
+        logger.error("sync.tasks.sync_calendar | error | reason=auth_failed")
+        logger.info("sync.tasks.sync_calendar | exit | status=failed published=0 patched=0 created=0")
+        return {"status": "failed", "error": "auth_failed", "published": 0, "patched": 0, "created": 0}
+
+
 @celery_app.task(bind=True, name="o365pop.sync.scan_outbound_spool")
 def scan_outbound_spool(self) -> dict:
     """SMTP/TEAM: scan spool and sendMail or post chat.
@@ -84,6 +105,30 @@ def scan_outbound_spool(self) -> dict:
     conn = connect(settings.db_path)
     init_schema(conn)
     return _run_outbound_scan(conn, settings)
+
+
+def _run_calendar_sync(conn: sqlite3.Connection, settings: Settings) -> dict:
+    """Bearer → publish calendar snapshot → apply receipts.
+
+    :param conn: sqlite connection. Example: ``connect(path)``
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: Success dict. Example: ``{"status": "completed", "published": 1, "patched": 0, "created": 0}``
+    """
+    service = _resolve_auth_service(conn, settings)
+    token = service.ensure_bearer()
+    graph = _resolve_graph(settings, token)
+    publish_calendar(
+        graph,
+        settings.cal_snapshot_path,
+        past_days=settings.cal_window_past_days,
+        future_days=settings.cal_window_future_days,
+    )
+    cal_root = settings.cal_snapshot_path.parent
+    receipt_counts = apply_calendar_receipts(graph, cal_root / "receipts", cal_root / "acks")
+    patched = int(receipt_counts["patched"])
+    created = int(receipt_counts["created"])
+    logger.info("sync.tasks.sync_calendar | exit | published=1 patched=%s created=%s", patched, created)
+    return {"status": "completed", "published": 1, "patched": patched, "created": created}
 
 
 def _run_task_sync(conn: sqlite3.Connection, settings: Settings) -> dict:

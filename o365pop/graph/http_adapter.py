@@ -138,6 +138,114 @@ class HttpGraphAdapter:
         self._request("DELETE", f"/me/todo/lists/{list_id}/tasks/{task_id}")
         logger.info("HttpGraphAdapter.delete_todo_task | exit | status=ok")
 
+    def list_calendars(self) -> list[dict[str, Any]]:
+        """GET /me/calendars skipping non-editable calendars.
+
+        :return: Calendars. Example: ``[{"id": "cal-work", "displayName": "Work"}]``
+        """
+        logger.info("HttpGraphAdapter.list_calendars | entry")
+        rows = list((self._get_json("/me/calendars").get("value") or []))
+        editable = [row for row in rows if row.get("canEdit", True) is not False]
+        logger.info("HttpGraphAdapter.list_calendars | exit | count=%s", len(editable))
+        return editable
+
+    def list_calendar_view(self, calendar_id: str, start: str, end: str) -> list[dict[str, Any]]:
+        """GET /me/calendars/{id}/calendarView.
+
+        :param calendar_id: Graph calendar id. Example: ``"cal-work"``
+        :param start: Window start ISO. Example: ``"2026-08-12T00:00:00Z"``
+        :param end: Window end ISO. Example: ``"2027-03-10T00:00:00Z"``
+        :return: Events. Example: ``[{"id": "evt-standup"}]``
+        """
+        logger.info("HttpGraphAdapter.list_calendar_view | entry | calendar_id=%s", calendar_id)
+        query = f"startDateTime={start}&endDateTime={end}"
+        path = f"/me/calendars/{calendar_id}/calendarView?{query}"
+        rows = list((self._get_json(path).get("value") or []))
+        logger.info("HttpGraphAdapter.list_calendar_view | exit | count=%s", len(rows))
+        return rows
+
+    def create_event(self, calendar_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """POST /me/calendars/{id}/events.
+
+        :param calendar_id: Target calendar. Example: ``"cal-work"``
+        :param body: Event object. Example: ``{"subject": "Dentist"}``
+        :return: Created event. Example: ``{"id": "evt-new"}``
+        """
+        logger.info("HttpGraphAdapter.create_event | entry | calendar_id=%s", calendar_id)
+        response = self._request("POST", f"/me/calendars/{calendar_id}/events", json_body=body)
+        payload = response.json()
+        logger.info("HttpGraphAdapter.create_event | exit | event_id=%s", payload.get("id"))
+        return payload if isinstance(payload, dict) else {"id": ""}
+
+    def patch_event(self, event_id: str, body: dict[str, Any]) -> None:
+        """PATCH /me/events/{id}.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :param body: Patch object. Example: ``{"subject": "Standup moved"}``
+        :return: None
+        """
+        logger.info("HttpGraphAdapter.patch_event | entry | event_id=%s", event_id)
+        self._request("PATCH", f"/me/events/{event_id}", json_body=body)
+        logger.info("HttpGraphAdapter.patch_event | exit | status=ok")
+
+    def delete_event(self, event_id: str) -> None:
+        """DELETE /me/events/{id}.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :return: None
+        """
+        logger.info("HttpGraphAdapter.delete_event | entry | event_id=%s", event_id)
+        self._request("DELETE", f"/me/events/{event_id}")
+        logger.info("HttpGraphAdapter.delete_event | exit | status=ok")
+
+    def list_event_attachments(self, event_id: str) -> list[dict[str, Any]]:
+        """GET /me/events/{id}/attachments.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :return: Attachment dicts. Example: ``[{"id": "att-1", "name": "agenda.pdf"}]``
+        """
+        logger.info("HttpGraphAdapter.list_event_attachments | entry | event_id=%s", event_id)
+        rows = list((self._get_json(f"/me/events/{event_id}/attachments").get("value") or []))
+        logger.info("HttpGraphAdapter.list_event_attachments | exit | count=%s", len(rows))
+        return rows
+
+    def get_event_attachment_bytes(self, event_id: str, attachment_id: str) -> bytes:
+        """GET /me/events/{id}/attachments/{attachmentId}/$value.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :param attachment_id: Attachment id. Example: ``"att-1"``
+        :return: File bytes. Example: ``b"%PDF-1.4"``
+        """
+        logger.info(
+            "HttpGraphAdapter.get_event_attachment_bytes | entry | event_id=%s attachment_id=%s",
+            event_id,
+            attachment_id,
+        )
+        response = self._request("GET", f"/me/events/{event_id}/attachments/{attachment_id}/$value")
+        logger.info("HttpGraphAdapter.get_event_attachment_bytes | exit | bytes=%s", len(response.content))
+        return response.content
+
+    def create_event_attachment(self, event_id: str, name: str, content_type: str, content: bytes) -> dict[str, Any]:
+        """POST /me/events/{id}/attachments.
+
+        :param event_id: Graph event id. Example: ``"evt-standup"``
+        :param name: File name. Example: ``"agenda.pdf"``
+        :param content_type: MIME type. Example: ``"application/pdf"``
+        :param content: Raw bytes. Example: ``b"%PDF-1.4"``
+        :return: Created attachment. Example: ``{"id": "att-2", "name": "agenda.pdf"}``
+        """
+        logger.info("HttpGraphAdapter.create_event_attachment | entry | event_id=%s name=%s", event_id, name)
+        payload = {
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            "name": name,
+            "contentType": content_type,
+            "contentBytes": base64.b64encode(content).decode("ascii"),
+        }
+        response = self._request("POST", f"/me/events/{event_id}/attachments", json_body=payload)
+        body = response.json()
+        logger.info("HttpGraphAdapter.create_event_attachment | exit | attachment_id=%s", body.get("id"))
+        return body if isinstance(body, dict) else {"id": ""}
+
     def _get_json(self, path: str) -> dict[str, Any]:
         """GET a JSON Graph resource.
 
