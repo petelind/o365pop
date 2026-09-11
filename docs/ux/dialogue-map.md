@@ -1,6 +1,6 @@
 # Dialogue map — Collect and send through the bridge
 
-**ESM-04 (stack-adjusted).** Not a GUI screen flow. Actors: Denis (operator), Entourage (vintage client), Celery (worker/beat), Graph.
+**ESM-04 (stack-adjusted).** Not a GUI screen flow. Actors: Denis (operator), Entourage (vintage client), Celery (worker/beat), Graph, Mac `taskd`.
 
 ```mermaid
 flowchart TD
@@ -37,6 +37,16 @@ flowchart TD
     H --> U[From teams.b32@o365pop.local]
     U --> V[Entourage Reply]
     V --> M
+  end
+
+  subgraph act5 [Act 5 Vintage client works Tasks]
+    E --> TS[Celery publishes tasks/snapshot.json]
+    TS --> TD[Mac taskd every 60s]
+    TD -->|LibreELEC down| WAIT[WARNING reachability=down then retry]
+    WAIT --> TD
+    TD --> AS[osascript Entourage Tasks Projects Categories]
+    AS --> RC[receipts/]
+    RC --> GP[Graph PATCH To Do]
   end
 ```
 

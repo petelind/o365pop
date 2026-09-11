@@ -10,7 +10,10 @@ JSON presets describe **shape**, not live secrets. Encrypted token columns stay 
 |---|---|---|---|---|
 | SYNC1.1-outlook-q3-close | `graph/SYNC1.1-outlook-q3-close/` | `inbox.json`, `message.eml` | SYNC1.1 | `tests/integration/test_inbound_toss_outlook.py` |
 | SYNC1.2-teams-ship-it | `graph/SYNC1.2-teams-ship-it/` | `chats.json`, `messages.json` | SYNC1.2 | `tests/integration/test_inbound_toss_teams.py` |
+| SYNC1.4-teams-html | `graph/SYNC1.4-teams-html/` | `chats.json`, `messages.json` | SYNC1.4 | `tests/integration/test_inbound_toss_teams.py` |
 | SYNC1.3-empty | `graph/SYNC1.3-empty/` | `inbox.json`, `chats.json` | SYNC1.3 | `tests/integration/test_sync_mailbox_empty.py` |
+
+TASK snapshot cases (`graph/TASK1.*`) land with BPE-01. Do not add empty fixture dirs before the plan.
 
 `inbox.json` / `chats.json` / `messages.json` are Graph-like `{ "value": [ ... ] }` lists. MIME is raw RFC822 (`message.eml`). FileGraphAdapter (SYNC) must read these paths as-is.
 

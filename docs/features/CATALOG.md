@@ -29,6 +29,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 |---|---|---|
 | SYNC1.1 | Inbox `AAMk-outlook-1` / subject `Q3 close`; no dup | `tests/integration/test_inbound_toss_outlook.py` + fixture `graph/SYNC1.1-outlook-q3-close` |
 | SYNC1.2 | Teams From `teams.{b32}@o365pop.local`; Message-ID `<teams.` | `tests/integration/test_inbound_toss_teams.py` + `graph/SYNC1.2-teams-ship-it` |
+| SYNC1.4 | Teams HTML body → multipart/alternative text/plain + text/html | `tests/integration/test_inbound_toss_teams.py` + `graph/SYNC1.4-teams-html` |
 | SYNC1.3 | empty sync; session `completed`; tossed=0 | `tests/integration/test_sync_mailbox_empty.py` + `graph/SYNC1.3-empty` |
 
 ## POP (`pop.feature`)
@@ -62,6 +63,19 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 |---|---|---|
 | DEP1.1 | bind 110/587; not WAN; compose services | `tests/unit/test_bind_config.py` (S7 skeleton) |
 
+## TASK (`tasks.feature`) — spec only until BPE-01
+
+| Scenario | Phrase | Pytest / helper |
+|---|---|---|
+| TASK1.1 | snapshot task → Entourage Task + uid + Project + category | `tests/integration/test_task_snapshot_create.py` (not written) |
+| TASK1.2 | missing To Do list → create Project | `tests/unit/test_task_project_map.py` (not written) |
+| TASK1.3 | renamed list → rename Project | `tests/unit/test_task_project_map.py` (not written) |
+| TASK1.4 | deleted list → delete synced Project | `tests/unit/test_task_project_map.py` (not written) |
+| TASK1.5 | masterCategory color → Entourage category | `tests/unit/test_task_category_color.py` (not written) |
+| TASK1.6 | Entourage completed → Graph PATCH | `tests/integration/test_task_receipt_patch.py` (not written) |
+| TASK1.7 | untagged local task ignored | `tests/unit/test_task_receipt_ignore_local.py` (not written) |
+| TASK1.8 | LibreELEC down; no raise; retry | `tests/unit/test_taskd_reachability_down.py` (not written) |
+
 ## Live journey (`docs/features/user_journey.md`) — `@live_graph` only
 
 | Act | Phrase | Pytest / helper |
@@ -70,6 +84,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | Act 2 | live sendMail probe → toss → POP RETR | `tests/live/test_user_journey.py::test_act2_sync_probe_then_pop_collect` |
 | Act 3 | SMTP AUTH LOGIN → scanner sendMail → `spool/sent` | `tests/live/test_user_journey.py::test_act3_smtp_sendmail_to_self` |
 | Act 4 | To `teams.*` → chat post (skip if no chats) | `tests/live/test_user_journey.py::test_act4_teams_reply_posts_chat` |
+| Act 5 | To Do snapshot → Entourage Task (operator Mac) | live `taskd` on Entourage host — not `make test` |
 
 `make test-e2e` / `make test-live-graph`. Not part of `make test`.
 

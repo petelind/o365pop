@@ -10,4 +10,4 @@ Feature: DEP LibreELEC Docker stack behind WireGuard
     Then popd listens on port 110 without TLS
     And smtpd listens on port 587 without TLS
     And neither process binds the WAN interface when ALLOW_LAN is unset
-    And volumes persist data, maildir, spool, and logs under /storage/o365pop
+    And volumes persist data, maildir, spool, logs, and tasks under /storage/o365pop

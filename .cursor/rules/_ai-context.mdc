@@ -11,23 +11,25 @@ alwaysApply: true
 
 ## What Is o365pop
 
-Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. `popd` / `smtpd` only speak the wire protocols.
+Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. `popd` / `smtpd` only speak the wire protocols. Mac `taskd` syncs To Do into Entourage Tasks via AppleScript (not POP).
 
 ---
 
 ## Architecture
 
 ```
-Entourage --WG--> popd/smtpd --fs--> maildir/spool
-                      ^
-Celery worker/beat ---+--> tosser --> graph (httpx) --> Microsoft 365
-                      +--> sqlite (account, tossed-index, chat_map)
+Entourage --WG/LAN--> popd/smtpd --fs--> maildir/spool
+     ^                    ^
+     |                    Celery --> tosser --> graph (httpx) --> Microsoft 365
+  taskd (osascript)              +--> sqlite + tasks/snapshot.json
+     |
+  Entourage Tasks / Projects / Categories
 ```
 
-- **Tech stack:** Python 3.14 package, SQLite, Celery + Redis, httpx + MSAL, aiosmtpd, Twisted POP3, maildir
-- **Key decisions:** Fido tosser; daemons never call Graph; cleartext POP/SMTP on the WG bind; one mailbox; no web UI
-- **Data:** `MailboxAccount`, `SyncSession`, `TossedMessage`, `ChatMap`; maildir inbound; spool outbound
-- **Full details:** `docs/architecture/SAO.md` (Design Principles + §§1–16). SAO §17 (agents) is N/A.
+- **Tech stack:** Python 3.12+ package, SQLite, Celery + Redis, httpx + MSAL, aiosmtpd, Twisted POP3, maildir; Mac `taskd` Python 3.13 stdlib + osascript
+- **Key decisions:** Fido tosser; daemons never call Graph; Mac `taskd` never calls Graph; cleartext POP/SMTP on the WG bind; one mailbox; no web UI; Tasks are not mail
+- **Data:** `MailboxAccount`, `SyncSession`, `TossedMessage`, `ChatMap`; maildir inbound; spool outbound; task snapshot + receipts
+- **Full details:** `docs/architecture/SAO.md` (Design Principles + §§1–16). SAO §17 (agents) is N/A. TASK CR: `docs/plans/TASK_CHANGE_RECONCILIATION.md`.
 
 ```
 o365pop/{accounts,graph,tosser,mailstore,popd,smtpd,sync}
@@ -55,6 +57,7 @@ docs/{architecture,features,plans,ux,process}
 | TFK checklist | `docs/process/TFK_VERIFICATION.md` | Harness verification |
 | Program index | `docs/plans/O365POP_IMPLEMENTATION_PLAN.md` | Order and checkpoints |
 | Feature plans | `docs/plans/{BOOT,AUTH,SYNC,POP,SMTP,TEAM,DEP}_IMPLEMENTATION_PLAN.md` | BPE-01 per feature |
+| TASK change request | `docs/plans/TASK_CHANGE_RECONCILIATION.md` | Entourage Tasks (BPE-08; BPE-01 later) |
 | Clarifications | `docs/plans/O365POP_Clarifications.md` | Locked defaults |
 | Development rules | `.cursor/rules/*.mdc` | Auto-loaded — do not duplicate here |
 | Process playbook | `.cursor/playbooks/edda/` | When running a workflow |
@@ -177,7 +180,7 @@ No Django models/views/templates. No frontend slice.
 ## Running Locally
 
 ```bash
-make provision          # Python 3.14 venv, deps, SQLite schema
+make provision          # Python 3.12+ venv, deps, SQLite schema
 make test               # pytest -m "not live_graph"
 make test-unit          # pytest tests/unit/
 make test-integration   # pytest tests/integration/

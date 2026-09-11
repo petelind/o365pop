@@ -2,11 +2,11 @@
 
 ## Personas
 
-**Denis** — Operator  
+**Denis** — Operator
 Runs o365pop as a Docker stack on LibreELEC. Has WireGuard inbound. Signs in to Microsoft once via device code over SSH. Reads `logs/app.log` when mail does not appear.
 
-**Vintage Client** — Entourage 2008 (and other POP/SMTP clients)  
-Lives on a Mac that reaches LibreELEC only through WireGuard (or LAN). Speaks POP3 on 110 and SMTP on 587 with no SSL. Uses a local mailbox password, not the Microsoft password.
+**Vintage Client** — Entourage 2008 (and other POP/SMTP clients)
+Lives on a Mac that reaches LibreELEC through WireGuard or LAN. Speaks POP3 on 110 and SMTP on 587 with no SSL. Uses a local mailbox password, not the Microsoft password. Tasks come from Mac `taskd` (AppleScript), not from POP.
 
 ---
 
@@ -14,9 +14,10 @@ Lives on a Mac that reaches LibreELEC only through WireGuard (or LAN). Speaks PO
 
 **o365pop**: local Graph-to-POP/SMTP bridge.
 
-- **Celery worker + beat**: Graph pull, inbound toss, outbound scan (taciturn2 sync shape)
+- **Celery worker + beat**: Graph pull, inbound toss, outbound scan, task snapshot (taciturn2 sync shape)
 - **popd / smtpd**: wire protocols only; filesystem message base
-- **Graph REST**: mail MIME + Teams chats + MIME send
+- **Mac taskd**: snapshot pull + Entourage AppleScript (Tasks / Projects / Categories)
+- **Graph REST**: mail MIME + Teams chats + MIME send + To Do + masterCategories
 
 **Domain model**:
 
@@ -25,12 +26,13 @@ Lives on a Mac that reaches LibreELEC only through WireGuard (or LAN). Speaks PO
 - **SyncSession** — one Celery pull/toss run
 - **Maildir** — what POP serves
 - **Spool** — what SMTP wrote and the scanner sends
+- **Task snapshot** — what `taskd` applies to Entourage
 
 ---
 
 ## Critical Architectural Principle
 
-**Daemons do not call Graph. Tosser does not speak POP/SMTP.**
+**Daemons do not call Graph. Tosser does not speak POP/SMTP. Mac `taskd` does not call Graph.**
 
 Celery syncs and tosses. POP/SMTP only read/write the message base. That is the taciturn2 split (worker does O365 work; other processes do not) applied to mail.
 
@@ -73,6 +75,12 @@ Success → `spool/sent/`. Failure → retry then `spool/failed/` and a log erro
 
 Entourage sends SMTP to that address (and usually sets `In-Reply-To` to our `Message-ID`). The scanner maps address / Message-ID → `ChatMap` / `TossedMessage` and posts the reply text into the same chat. Ada sees it in Teams. Nothing is sent as Outlook mail.
 
+### Act 5: Vintage client works Tasks in Entourage
+
+**Context**: Graph has To Do lists and Outlook categories. POP cannot create Entourage Tasks.
+
+LibreELEC publishes `/storage/o365pop/tasks/snapshot.json`. Every minute `taskd` on the Entourage Mac pulls it and AppleScripts Tasks, Projects (one per To Do list), and categories (colors mapped from Outlook). Completing or editing a uid-tagged task writes a receipt; Celery PATCHes Graph. Untagged local tasks stay local. If LibreELEC is down, `taskd` stays running, logs a WARNING, and retries the next minute — it does not crash.
+
 ---
 
 ## Acts and feature files
@@ -86,3 +94,4 @@ Entourage sends SMTP to that address (and usually sets `In-Reply-To` to our `Mes
 | SMTP + send | `docs/features/act-1-bridge/smtp.feature` | `docs/plans/SMTP_IMPLEMENTATION_PLAN.md` |
 | Teams reply map | `docs/features/act-1-bridge/teams.feature` | `docs/plans/TEAM_IMPLEMENTATION_PLAN.md` |
 | LibreELEC deploy | `docs/features/act-1-bridge/deploy.feature` | `docs/plans/DEP_IMPLEMENTATION_PLAN.md` |
+| Entourage Tasks | `docs/features/act-1-bridge/tasks.feature` | `docs/plans/TASK_IMPLEMENTATION_PLAN.md` |

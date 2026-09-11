@@ -30,3 +30,5 @@ DSP re-run 2026-09-05 against **Edda v73** for **Cursor**. ESM/DTA/BSP/TFK/PIN a
 MIN contract: [`.cursor/rules/min-iteration.mdc`](.cursor/rules/min-iteration.mdc). Activate with **Work on Milestone #1**.
 
 Active iteration: [`docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`](docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml). Next implementable scenario: **SMTP SEND1.1** (S5).
+
+Entourage Tasks (Act 5) is spec-only until BPE-01: [`docs/plans/TASK_CHANGE_RECONCILIATION.md`](docs/plans/TASK_CHANGE_RECONCILIATION.md).
