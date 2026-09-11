@@ -21,7 +21,7 @@ from o365pop.mailstore.spool import SpoolStore
 from o365pop.sync.sessions import SyncSession, mark_completed, mark_failed, start_session
 from o365pop.tosser.inbound import InboundTosser
 from o365pop.tosser.outbound_scanner import OutboundScanner
-from o365pop.tosser.task_snapshot import publish
+from o365pop.tosser.task_snapshot import apply_receipts, publish
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,8 @@ def _run_task_sync(conn: sqlite3.Connection, settings: Settings) -> dict:
     token = service.ensure_bearer()
     graph = _resolve_graph(settings, token)
     publish(graph, settings.task_snapshot_path)
-    # TODO: TASK slice 6 — apply receipts so LibreELEC PATCHes Graph (TASK1.6). Operators need patched counts.
-    patched = 0
+    receipt_counts = apply_receipts(graph, settings.task_snapshot_path.parent / "receipts")
+    patched = int(receipt_counts["patched"])
     logger.info("sync.tasks.sync_tasks | exit | published=1 patched=%s", patched)
     return {"status": "completed", "published": 1, "patched": patched}
 

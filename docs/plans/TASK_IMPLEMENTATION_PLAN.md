@@ -239,9 +239,9 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ### TASK1.6–1.7 Receipts (slice 6)
 
-- [ ] **6.1** Queue receipt JSON; skip untagged (1.7)
-- [ ] **6.2** `tosser.task_snapshot.apply_receipts` → Graph PATCH/DELETE
-- [ ] **6.3** Red/green: `test_task_receipt_patch`, `test_task_receipt_ignore_local`, `test_sync_tasks_log_story_happy`
+- [x] **6.1** Queue receipt JSON; skip untagged (1.7)
+- [x] **6.2** `tosser.task_snapshot.apply_receipts` → Graph PATCH/DELETE
+- [x] **6.3** Red/green: `test_task_receipt_patch`, `test_task_receipt_ignore_local`, `test_sync_tasks_log_story_happy`
 - **Commit**: `feat(sync): apply Entourage task receipts to Graph`
 
 ### Deploy + live smoke (slice 7)

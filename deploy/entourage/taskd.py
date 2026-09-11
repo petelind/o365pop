@@ -8,6 +8,7 @@ from pathlib import Path
 
 from deploy.entourage.apply import apply_snapshot
 from deploy.entourage.port import EntouragePort
+from deploy.entourage.receipts import queue_receipts
 from deploy.entourage.snapshot import Snapshot, SnapshotError, parse_snapshot
 from deploy.entourage.uid_map import UidMap
 
@@ -50,5 +51,6 @@ def run_once(snapshot_path: Path, state_dir: Path, entourage: EntouragePort) -> 
         return {"status": "unreachable", "created": 0, "updated": 0}
     uid_map = UidMap.load(state_dir / "uid_map.json")
     counts = apply_snapshot(snapshot, entourage, uid_map)
+    queued = queue_receipts(entourage, uid_map, snapshot, snapshot_path.parent / "receipts")
     uid_map.save(state_dir / "uid_map.json")
-    return {"status": "ok", **counts}
+    return {"status": "ok", "receipts": queued, **counts}

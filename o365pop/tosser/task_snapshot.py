@@ -38,6 +38,104 @@ def publish(graph: GraphPort, dest: Path) -> dict[str, Any]:
     return {"lists": len(lists), "tasks": len(tasks), "bytes": size}
 
 
+RECEIPT_MAX_ATTEMPTS = 3
+
+
+def apply_receipts(graph: GraphPort, receipts_dir: Path) -> dict[str, int]:
+    """PATCH/DELETE Graph from Mac receipt JSON. Moves files to sent/ or failed/.
+
+    :param graph: GraphPort. Example: ``FileGraphAdapter(case_dir)``
+    :param receipts_dir: ``tasks/receipts``. Example: ``Path("var/tasks/receipts")``
+    :return: Counts. Example: ``{"patched": 1, "deleted": 0}``
+    """
+    new_dir = receipts_dir / "new"
+    sent_dir = receipts_dir / "sent"
+    failed_dir = receipts_dir / "failed"
+    sent_dir.mkdir(parents=True, exist_ok=True)
+    failed_dir.mkdir(parents=True, exist_ok=True)
+    patched = deleted = 0
+    if not new_dir.is_dir():
+        return {"patched": 0, "deleted": 0}
+    for path in sorted(new_dir.glob("*.json")):
+        patched_one, deleted_one = _apply_one_receipt(graph, path, sent_dir, failed_dir)
+        patched += patched_one
+        deleted += deleted_one
+    return {"patched": patched, "deleted": deleted}
+
+
+def _apply_one_receipt(graph: GraphPort, path: Path, sent_dir: Path, failed_dir: Path) -> tuple[int, int]:
+    """Apply one receipt file.
+
+    :param graph: GraphPort. Example: ``FileGraphAdapter(case_dir)``
+    :param path: Receipt JSON. Example: ``Path("receipts/new/task-q3.json")``
+    :param sent_dir: Success dir. Example: ``Path("receipts/sent")``
+    :param failed_dir: Failure dir. Example: ``Path("receipts/failed")``
+    :return: (patched, deleted). Example: ``(1, 0)``
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        patched, deleted = _dispatch_receipt(graph, payload)
+        path.replace(sent_dir / path.name)
+        return patched, deleted
+    except Exception as exc:
+        logger.error("tosser.task_snapshot.apply_receipts | error | path=%s err=%s", path.name, type(exc).__name__)
+        _bump_or_fail(path, failed_dir)
+        return 0, 0
+
+
+def _dispatch_receipt(graph: GraphPort, payload: dict[str, Any]) -> tuple[int, int]:
+    """PATCH or DELETE one Graph task.
+
+    :param graph: GraphPort. Example: ``FileGraphAdapter(case_dir)``
+    :param payload: Receipt. Example: ``{"uid": "task-q3", "listId": "list-work", "status": "completed"}``
+    :return: (patched, deleted). Example: ``(1, 0)``
+    """
+    list_id = str(payload["listId"])
+    task_id = str(payload["uid"])
+    if payload.get("deleted"):
+        graph.delete_todo_task(list_id, task_id)
+        return 0, 1
+    graph.patch_todo_task(list_id, task_id, _patch_body(payload))
+    return 1, 0
+
+
+def _patch_body(payload: dict[str, Any]) -> dict[str, Any]:
+    """Graph PATCH body from a receipt.
+
+    :param payload: Receipt. Example: ``{"status": "completed", "title": "File the Q3 report"}``
+    :return: Patch object. Example: ``{"status": "completed"}``
+    """
+    body: dict[str, Any] = {"status": str(payload.get("status") or "notStarted")}
+    if payload.get("title"):
+        body["title"] = str(payload["title"])
+    if payload.get("dueDateTime"):
+        body["dueDateTime"] = {"dateTime": str(payload["dueDateTime"]).replace("Z", ""), "timeZone": "UTC"}
+    return body
+
+
+def _bump_or_fail(path: Path, failed_dir: Path) -> None:
+    """Increment attempts or move to failed/.
+
+    :param path: Receipt still in new/. Example: ``Path("receipts/new/task-q3.json")``
+    :param failed_dir: failed/. Example: ``Path("receipts/failed")``
+    :return: None
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        path.replace(failed_dir / path.name)
+        return
+    if not isinstance(payload, dict):
+        path.replace(failed_dir / path.name)
+        return
+    attempts = int(payload.get("attempts") or 0) + 1
+    payload["attempts"] = attempts
+    if attempts >= RECEIPT_MAX_ATTEMPTS:
+        path.replace(failed_dir / path.name)
+        return
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 def _collect(graph: GraphPort) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Pull lists, categories, and flattened tasks.
 
