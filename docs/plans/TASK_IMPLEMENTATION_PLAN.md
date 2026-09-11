@@ -221,8 +221,8 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ### TASK1.2–1.4 Projects (slice 3)
 
-- [ ] **3.1** `deploy/entourage/apply.py` list↔Project on FakeEntourage
-- [ ] **3.2** Red/green: `test_task_project_map`
+- [x] **3.1** `deploy/entourage/apply.py` list↔Project on FakeEntourage
+- [x] **3.2** Red/green: `test_task_project_map`
 - **Commit**: `feat(taskd): sync To Do lists to Entourage Projects`
 
 ### TASK1.5 Categories (slice 4)
