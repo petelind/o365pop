@@ -20,6 +20,8 @@
   <dict>
     <key>TASK_SNAPSHOT_PATH</key>
     <string>/Volumes/o365pop/tasks/snapshot.json</string>
+    <key>CAL_SNAPSHOT_PATH</key>
+    <string>/Volumes/o365pop/calendar/snapshot.json</string>
     <key>TASK_STATE_DIR</key>
     <string>/Users/REPLACE/Library/Application Support/o365pop</string>
     <key>TASK_LOG_PATH</key>
