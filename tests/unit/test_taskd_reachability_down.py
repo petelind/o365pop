@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from deploy.entourage.taskd import pull_snapshot
+from deploy.entourage.taskd import pull_calendar_snapshot, pull_snapshot, run_calendar_once
 from tests.support.fake_entourage import FakeEntourage
 
 
@@ -27,6 +27,19 @@ def test_missing_snapshot_does_not_raise_or_mutate(tmp_path: Path) -> None:
     assert after == before
     assert after[0]["id"] == sentinel["id"]
     assert after[0]["name"] == "Buy milk"
+
+
+@pytest.mark.unit
+def test_missing_calendar_snapshot_does_not_raise(tmp_path: Path) -> None:
+    """CAL1.8: calendar path missing returns unreachable, no exception.
+
+    :param tmp_path: Isolated dir. Example: ``Path("/tmp/pytest-...")``
+    :return: None
+    """
+    entourage = FakeEntourage()
+    result = run_calendar_once(tmp_path / "missing" / "snapshot.json", tmp_path, entourage)
+    assert result["status"] == "unreachable"
+    assert pull_calendar_snapshot(tmp_path / "also-missing.json") is None
 
 
 @pytest.mark.unit
