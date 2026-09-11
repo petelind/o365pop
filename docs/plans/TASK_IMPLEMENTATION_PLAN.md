@@ -246,8 +246,8 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ### Deploy + live smoke (slice 7)
 
-- [ ] **7.1** `deploy/entourage/README.md` + launchd plist (`StartInterval` 60)
-- [ ] **7.2** `OsascriptEntourage` adapter (not imported by `make test`)
+- [x] **7.1** `deploy/entourage/README.md` + launchd plist (`StartInterval` 60)
+- [x] **7.2** `OsascriptEntourage` adapter (not imported by `make test`)
 - [ ] **7.3** Operator: new scopes + login; `taskd` on `Deniss-MacBook-Pro-2.local` against a Task1.1 fixture or live list
 - **Commit**: `docs(taskd): launchd install notes`
 
@@ -258,11 +258,11 @@ Rules: `do-skeletons-first`, `do-test-first`, `do-assert-log-story`, `do-not-moc
 
 ## Definition of Done
 
-- [ ] Checkpoint green (includes log-story tests)
-- [ ] `make test` still green (mail/TEAM/DEP)
-- [ ] No `osascript` in merge-gate tests
-- [ ] Azure scopes documented; human login is operator DoD, not CI
-- [ ] Next activity is execute slices (BPE-02+) after issue handoff
+- [x] Checkpoint green (includes log-story tests)
+- [x] `make test` still green (mail/TEAM/DEP)
+- [x] No `osascript` in merge-gate tests
+- [x] Azure scopes documented; human login is operator DoD, not CI
+- [ ] Operator 7.3: Azure `Tasks.ReadWrite` + `MailboxSettings.Read`, `make login`, live `taskd` on the Entourage Mac
 
 ---
 

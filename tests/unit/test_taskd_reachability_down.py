@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -26,3 +27,12 @@ def test_missing_snapshot_does_not_raise_or_mutate(tmp_path: Path) -> None:
     assert after == before
     assert after[0]["id"] == sentinel["id"]
     assert after[0]["name"] == "Buy milk"
+
+
+@pytest.mark.unit
+def test_taskd_module_does_not_import_osascript() -> None:
+    """make test must not load OsascriptEntourage.
+
+    :return: None
+    """
+    assert "deploy.entourage.osascript_entourage" not in sys.modules

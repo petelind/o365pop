@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.o365pop.taskd</string>
+  <key>WorkingDirectory</key>
+  <string>/REPLACE/WITH/o365pop/checkout</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/python3</string>
+    <string>-m</string>
+    <string>deploy.entourage</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>60</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>TASK_SNAPSHOT_PATH</key>
+    <string>/Volumes/o365pop/tasks/snapshot.json</string>
+    <key>TASK_STATE_DIR</key>
+    <string>/Users/REPLACE/Library/Application Support/o365pop</string>
+    <key>TASK_LOG_PATH</key>
+    <string>/Users/REPLACE/Library/Logs/o365pop-taskd.log</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/REPLACE/Library/Logs/o365pop-taskd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/REPLACE/Library/Logs/o365pop-taskd.err.log</string>
+</dict>
+</plist>
