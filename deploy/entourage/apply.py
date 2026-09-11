@@ -35,6 +35,35 @@ def apply_snapshot(snapshot: Snapshot, entourage: EntouragePort, uid_map: UidMap
     return counts
 
 
+def backfill_projects(snapshot: Snapshot, entourage: EntouragePort, uid_map: UidMap) -> int:
+    """Set ``project list`` on already-joined tasks from their Graph list.
+
+    :param snapshot: Parsed snapshot. Example: ``parse_snapshot({...})``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: Assigned count. Example: ``1``
+    """
+    assigned = 0
+    for row in snapshot.tasks:
+        local_id = uid_map.tasks.get(row.id)
+        project_id = uid_map.lists.get(row.list_id)
+        if not local_id or not project_id:
+            continue
+        try:
+            entourage.update_task(local_id, {"project_id": project_id})
+        except (RuntimeError, KeyError) as exc:
+            logger.warning(
+                "taskd.apply | branch | project_backfill_skip uid=%s err=%s",
+                row.id,
+                type(exc).__name__,
+            )
+            continue
+        assigned += 1
+        logger.info("taskd.apply | processing | project_backfill uid=%s", row.id)
+    logger.info("taskd.apply | exit | project_backfill=%s", assigned)
+    return assigned
+
+
 def _sync_projects(lists: tuple[SnapshotList, ...], entourage: EntouragePort, uid_map: UidMap) -> dict[str, int]:
     """Create, rename, or delete joined Projects.
 
@@ -54,7 +83,7 @@ def _sync_projects(lists: tuple[SnapshotList, ...], entourage: EntouragePort, ui
 
 
 def _ensure_project(row: SnapshotList, entourage: EntouragePort, uid_map: UidMap) -> int:
-    """Create a Project when the Graph list is not joined.
+    """Join a same-named Project, or create one when the Graph list is new.
 
     :param row: Snapshot list. Example: ``SnapshotList("list-garden", "Garden")``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
@@ -62,6 +91,11 @@ def _ensure_project(row: SnapshotList, entourage: EntouragePort, uid_map: UidMap
     :return: 1 if created else 0. Example: ``1``
     """
     if row.id in uid_map.lists:
+        return 0
+    existing = _project_by_name(entourage.list_projects(), row.display_name)
+    if existing is not None:
+        uid_map.lists[row.id] = str(existing["id"])
+        logger.info("taskd.apply | processing | project_join graph=%s name=%s", row.id, row.display_name)
         return 0
     project = entourage.create_project(row.display_name)
     uid_map.lists[row.id] = str(project["id"])
@@ -89,7 +123,7 @@ def _rename_if_needed(row: SnapshotList, entourage: EntouragePort, uid_map: UidM
 
 
 def _delete_missing_projects(seen: set[str], entourage: EntouragePort, uid_map: UidMap) -> int:
-    """Delete Projects whose Graph list disappeared.
+    """Delete Projects whose Graph list disappeared unless a calendar join remains (Q15 B).
 
     :param seen: Snapshot list ids. Example: ``{"list-work"}``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
@@ -97,11 +131,18 @@ def _delete_missing_projects(seen: set[str], entourage: EntouragePort, uid_map: 
     :return: Deleted count. Example: ``1``
     """
     deleted = 0
+    calendar_projects = set(uid_map.calendars.values())
     for graph_id, project_id in list(uid_map.lists.items()):
         if graph_id in seen:
             continue
-        entourage.delete_project(project_id)
         del uid_map.lists[graph_id]
+        if project_id in calendar_projects:
+            logger.info(
+                "taskd.apply | processing | list_join_removed graph=%s calendar_join_keeps_project=true",
+                graph_id,
+            )
+            continue
+        entourage.delete_project(project_id)
         deleted += 1
         logger.info("taskd.apply | processing | project_delete graph=%s", graph_id)
     return deleted
@@ -187,6 +228,19 @@ def _category_by_id(categories: list[dict[str, Any]], category_id: str) -> dict[
     """
     for row in categories:
         if str(row.get("id")) == category_id:
+            return row
+    return None
+
+
+def _project_by_name(projects: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+    """Find a project by display name.
+
+    :param projects: list_projects() copy. Example: ``[{"name": "Garden"}]``
+    :param name: Display name. Example: ``"Garden"``
+    :return: Record or None. Example: ``{"id": "11", "name": "Garden"}``
+    """
+    for row in projects:
+        if row.get("name") == name:
             return row
     return None
 

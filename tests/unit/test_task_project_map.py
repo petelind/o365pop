@@ -29,6 +29,21 @@ def test_missing_list_creates_project() -> None:
 
 
 @pytest.mark.unit
+def test_existing_project_name_is_joined() -> None:
+    """A local Project with the list name is reused, not duplicated.
+
+    :return: None
+    """
+    entourage = FakeEntourage()
+    existing = entourage.create_project("Tasks")
+    uid_map = UidMap()
+    apply_snapshot(_snapshot({"id": "list-tasks", "displayName": "Tasks"}), entourage, uid_map)
+    projects = entourage.list_projects()
+    assert [row["name"] for row in projects] == ["Tasks"]
+    assert uid_map.lists["list-tasks"] == existing["id"]
+
+
+@pytest.mark.unit
 def test_renamed_list_renames_joined_project() -> None:
     """TASK1.3 Garden → Yard keeps the Graph join.
 
@@ -43,6 +58,25 @@ def test_renamed_list_renames_joined_project() -> None:
     assert projects[0]["name"] == "Yard"
     assert uid_map.lists["list-garden"] == projects[0]["id"]
     assert "Garden" not in [row["name"] for row in projects]
+
+
+@pytest.mark.unit
+def test_deleted_list_keeps_project_when_calendar_join_remains() -> None:
+    """TASK1.4 Q15 B: missing list drops join but calendar join keeps Project.
+
+    :return: None
+    """
+    entourage = FakeEntourage()
+    uid_map = UidMap()
+    apply_snapshot(_snapshot({"id": "list-garden", "displayName": "Yard"}), entourage, uid_map)
+    project_id = uid_map.lists["list-garden"]
+    uid_map.calendars["cal-garden"] = project_id
+    apply_snapshot(_snapshot(), entourage, uid_map)
+    projects = entourage.list_projects()
+    assert len(projects) == 1
+    assert projects[0]["name"] == "Yard"
+    assert uid_map.calendars["cal-garden"] == project_id
+    assert "list-garden" not in uid_map.lists
 
 
 @pytest.mark.unit

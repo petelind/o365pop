@@ -10,12 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class UidMap:
-    """Three join tables stored as one JSON file."""
+    """Join tables stored as one JSON file (tasks + calendar)."""
 
     def __init__(self) -> None:
         self.tasks: dict[str, str] = {}
         self.lists: dict[str, str] = {}
         self.categories: dict[str, str] = {}
+        self.calendars: dict[str, str] = {}
+        self.events: dict[str, str] = {}
 
     @classmethod
     def load(cls, path: Path) -> UidMap:
@@ -32,11 +34,15 @@ class UidMap:
         mapping.tasks = {str(key): str(value) for key, value in (payload.get("tasks") or {}).items()}
         mapping.lists = {str(key): str(value) for key, value in (payload.get("lists") or {}).items()}
         mapping.categories = {str(key): str(value) for key, value in (payload.get("categories") or {}).items()}
+        mapping.calendars = {str(key): str(value) for key, value in (payload.get("calendars") or {}).items()}
+        mapping.events = {str(key): str(value) for key, value in (payload.get("events") or {}).items()}
         logger.info(
-            "taskd.uid_map.load | exit | tasks=%s lists=%s categories=%s",
+            "taskd.uid_map.load | exit | tasks=%s lists=%s categories=%s calendars=%s events=%s",
             len(mapping.tasks),
             len(mapping.lists),
             len(mapping.categories),
+            len(mapping.calendars),
+            len(mapping.events),
         )
         return mapping
 
@@ -49,7 +55,16 @@ class UidMap:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_name(f"{path.name}.tmp")
         tmp.write_text(
-            json.dumps({"tasks": self.tasks, "lists": self.lists, "categories": self.categories}, indent=2),
+            json.dumps(
+                {
+                    "tasks": self.tasks,
+                    "lists": self.lists,
+                    "categories": self.categories,
+                    "calendars": self.calendars,
+                    "events": self.events,
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
         tmp.replace(path)
