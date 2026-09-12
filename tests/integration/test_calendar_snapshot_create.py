@@ -47,8 +47,9 @@ def test_calendar_snapshot_create_standup(
     assert "o365pop-uid: evt-standup" in event["content"]
     assert "Ada Lovelace" in event["content"]
     assert "ada@contoso.com" in event["content"]
-    assert "<strong>deck</strong>" in event["content"]
-    assert event.get("content_is_html") is True
+    assert "deck" in event["content"]
+    assert "<strong>" not in event["content"]
+    assert event.get("content_is_html") is not True
     assert event["to_recipients"] == []
     assert "Work" in event["categories"]
     assert event["reminder_minutes"] == 15

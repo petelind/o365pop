@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from deploy.entourage.color_map import entourage_color_rgb
+from deploy.entourage.html_body import html_to_plain
 
 logger = logging.getLogger(__name__)
 
@@ -490,47 +491,39 @@ def _event_time_props(properties: dict[str, Any]) -> list[str]:
     return parts
 
 
-def _event_content_text(properties: dict[str, Any]) -> tuple[str, str]:
-    """Return HTML and plain event notes. Entourage events have no ``plain text content``.
+def _event_content_text(properties: dict[str, Any]) -> str:
+    """Return plain event notes. Entourage event ``content`` is text-only.
 
-    :param properties: Event fields. Example: ``{"content_html": "<p>Hi</p>", "content_plain": "Hi"}``
-    :return: HTML then plain. Example: ``("<p>Hi</p>", "Hi")``
+    :param properties: Event fields. Example: ``{"content_plain": "Hi"}``
+    :return: Notes. Example: ``"Hi"``
     """
-    html = str(properties.get("content_html") or "").strip()
     plain = str(properties.get("content_plain") or properties.get("content") or "").strip()
-    return html, plain
+    if plain:
+        return plain
+    html = str(properties.get("content_html") or "").strip()
+    return html_to_plain(html) if html else ""
 
 
 def _event_content_prop(properties: dict[str, Any]) -> str:
     """AppleScript property fragment for event body (always ``content``).
 
-    :param properties: Event fields. Example: ``{"content_html": "<p>Hi</p>"}``
-    :return: Property fragment. Example: ``'content:"<html>..."'``
+    :param properties: Event fields. Example: ``{"content_plain": "Hi"}``
+    :return: Property fragment. Example: ``'content:"Hi"'``
     """
-    html, plain = _event_content_text(properties)
-    text = html or plain
+    text = _event_content_text(properties)
     return f'content:"{_escape(text)}"'
 
 
 def _event_content_assign(properties: dict[str, Any]) -> str:
-    """AppleScript setter for event notes via ``content`` (not ``plain text content``).
+    """AppleScript setter for event notes via ``content`` (plain text only).
 
-    Entourage 2008 events raise -1728 ``Can't get content`` when the script
-    uses ``plain text content``. HTML that Entourage rejects falls back to plain.
+    Entourage 2008 events have no HTML renderer and no ``plain text content``.
+    Writing markup stores visible tag soup.
 
-    :param properties: Event fields. Example: ``{"content_html": "<p>Hi</p>"}``
-    :return: Statement or empty. Example: ``'set content of e to "..."'``
+    :param properties: Event fields. Example: ``{"content_plain": "Hi"}``
+    :return: Statement or empty. Example: ``'set content of e to "Hi"'``
     """
-    html, plain = _event_content_text(properties)
-    if html and plain:
-        return (
-            "try\n"
-            f'    set content of e to "{_escape(html)}"\n'
-            "  on error\n"
-            f'    set content of e to "{_escape(plain)}"\n'
-            "  end try"
-        )
-    text = html or plain
+    text = _event_content_text(properties)
     if not text:
         return ""
     return f'set content of e to "{_escape(text)}"'

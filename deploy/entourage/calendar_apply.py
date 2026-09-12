@@ -20,7 +20,7 @@ from deploy.entourage.calendar_snapshot import (
     SnapshotCalendar,
     SnapshotEvent,
 )
-from deploy.entourage.html_body import html_to_plain, is_html_body, merge_html
+from deploy.entourage.html_body import html_to_plain, is_html_body
 from deploy.entourage.port import EntouragePort
 from deploy.entourage.uid_map import UidMap
 
@@ -248,42 +248,46 @@ def _apply_category_names(names: tuple[str, ...], entourage: EntouragePort) -> l
 
 
 def _event_body_fields(row: SnapshotEvent) -> dict[str, str]:
-    """Build Entourage HTML or plain body fields from Graph content.
+    """Build Entourage plain notes from Graph content (events are text-only).
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", body="<p>Hi</p>", ...)``
-    :return: HTML plus plain fallback. Example: ``{"content_html": "<html>...", "content_plain": "uid"}``
+    :return: Plain notes. Example: ``{"content_plain": "o365pop-uid: evt-standup\\n\\nHi"}``
     """
-    meta_plain, meta_html = _uid_attendee_lines(row)
-    graph_body = (row.body or "").strip()
-    graph_type = row.body_content_type or "text"
-    if not graph_body:
-        return {"content_plain": meta_plain} if meta_plain else {}
-    if is_html_body(graph_body, graph_type):
-        plain = "\n\n".join(part for part in (meta_plain, html_to_plain(graph_body)) if part)
-        return {"content_html": merge_html(meta_html, graph_body), "content_plain": plain}
-    if is_html_body(graph_body, "text"):
-        graph_body = html_to_plain(graph_body)
+    meta_plain = _uid_attendee_lines(row)
+    graph_body = _plain_graph_body(row)
     plain = "\n\n".join(part for part in (meta_plain, graph_body) if part)
-    return {"content_plain": plain}
+    return {"content_plain": plain} if plain else {}
 
 
-def _uid_attendee_lines(row: SnapshotEvent) -> tuple[str, str]:
-    """Uid and attendee metadata as plain and HTML fragments.
+def _plain_graph_body(row: SnapshotEvent) -> str:
+    """Strip Graph HTML (or mislabeled markup) to readable text.
+
+    :param row: Snapshot event. Example: ``SnapshotEvent(..., body="<p>Hi</p>", body_content_type="html")``
+    :return: Plain body. Example: ``"Hi"``
+    """
+    graph_body = (row.body or "").strip()
+    if not graph_body:
+        return ""
+    graph_type = row.body_content_type or "text"
+    if is_html_body(graph_body, graph_type) or is_html_body(graph_body, "text"):
+        return html_to_plain(graph_body)
+    return graph_body
+
+
+def _uid_attendee_lines(row: SnapshotEvent) -> str:
+    """Uid and attendee metadata as plain text.
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", ...)``
-    :return: Plain block and HTML snippet. Example: ``("o365pop-uid: evt-standup", "<p>...</p>")``
+    :return: Plain block. Example: ``"o365pop-uid: evt-standup"``
     """
     uid_line = format_uid(row.id)
     plain_lines = [uid_line]
-    html_parts = [f"<p>{uid_line}</p>"]
     if row.attendees:
         attendee_bits = []
         for att in row.attendees:
             attendee_bits.append(f"{att.name} <{att.email}> ({att.type})")
-        att_line = f"{ATTENDEES_PREFIX} " + "; ".join(attendee_bits)
-        plain_lines.append(att_line)
-        html_parts.append(f"<p>{att_line}</p>")
-    return "\n".join(plain_lines), "".join(html_parts)
+        plain_lines.append(f"{ATTENDEES_PREFIX} " + "; ".join(attendee_bits))
+    return "\n".join(plain_lines)
 
 
 def _local_event_newer(event: dict[str, Any], row: SnapshotEvent) -> bool:

@@ -1,4 +1,4 @@
-"""CAL BPE-09 — event body uses HTML content property, not plain text tag soup."""
+"""CAL — Entourage event notes are plain text; Graph HTML must be stripped."""
 
 from __future__ import annotations
 
@@ -32,23 +32,43 @@ def _standup_row(*, body: str = "", body_type: str = "text") -> SnapshotEvent:
 
 
 @pytest.mark.unit
-def test_event_body_fields_routes_html_to_content_html() -> None:
-    """Graph HTML body is primary; plain is a fallback if Entourage rejects HTML.
+def test_event_body_fields_strips_graph_html_to_plain() -> None:
+    """Event notes have no HTML property; tags must not appear in content.
 
     :return: None
     """
     fields = _event_body_fields(_standup_row(body="<p>Please review the <strong>deck</strong>.</p>", body_type="html"))
-    assert "content_html" in fields
-    assert "<strong>deck</strong>" in fields["content_html"]
-    assert "o365pop-uid: evt-standup" in fields["content_html"]
-    assert "content_plain" in fields
+    assert "content_html" not in fields
+    assert fields["content_plain"]
     assert "o365pop-uid: evt-standup" in fields["content_plain"]
+    assert "deck" in fields["content_plain"]
+    assert "<p>" not in fields["content_plain"]
     assert "<strong>" not in fields["content_plain"]
+    assert "strong" not in fields["content_plain"]
+
+
+@pytest.mark.unit
+def test_event_body_fields_strips_exchange_plaintext_wrapper() -> None:
+    """Outlook 'converted from text' HTML must become readable notes.
+
+    :return: None
+    """
+    soup = (
+        '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
+        '<meta name="Generator" content="Microsoft Exchange Server">'
+        '</head><body><div class="PlainText">Log all expenses (5min)</div></body></html>'
+    )
+    fields = _event_body_fields(_standup_row(body=soup, body_type="html"))
+    assert "content_html" not in fields
+    assert "Log all expenses (5min)" in fields["content_plain"]
+    assert "<html>" not in fields["content_plain"]
+    assert "<div" not in fields["content_plain"]
+    assert "Generator" not in fields["content_plain"]
 
 
 @pytest.mark.unit
 def test_parse_uid_finds_graph_id_inside_html_content() -> None:
-    """Receipt queue must resolve uid when metadata is wrapped in HTML.
+    """Receipt queue must still resolve uid if a live event still has leftover HTML.
 
     :return: None
     """

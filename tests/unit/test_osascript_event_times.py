@@ -96,12 +96,13 @@ def test_event_create_script_uses_content_for_html_body() -> None:
     script = _event_create_script(
         {
             "subject": "Standup",
-            "content_html": "<html><body><p>Ship it</p></body></html>",
+            "content_plain": "Ship it",
         }
     )
     assert "make new event with properties {subject:" in script
     assert "plain text content:" not in script.split("make new event")[1].split("\n")[0]
-    assert 'set content of e to "<html><body><p>Ship it</p></body></html>"' in script
+    assert 'set content of e to "Ship it"' in script
+    assert "<html>" not in script
     assert 'log "event_create make"' in script
     assert 'log "event_create content"' in script
 
@@ -141,8 +142,8 @@ def test_event_create_script_uses_content_for_text_body() -> None:
 
 
 @pytest.mark.unit
-def test_event_create_script_html_falls_back_to_plain_content() -> None:
-    """Exchange HTML that Entourage rejects must fall back to ``content`` plain text.
+def test_event_create_script_never_writes_html_notes() -> None:
+    """Event ``content`` is a text field; leftover content_html must be stripped.
 
     :return: None
     """
@@ -150,13 +151,14 @@ def test_event_create_script_html_falls_back_to_plain_content() -> None:
         {
             "subject": "Taming the AI: Knowledge Sharing sessions(part 2)",
             "content_html": '<html><head><meta content="text/html"></head><body><p>Hi</p></body></html>',
-            "content_plain": "o365pop-uid: evt-zoom",
+            "content_plain": "o365pop-uid: evt-zoom\n\nHi",
         }
     )
     assert "plain text content" not in script
-    assert "on error" in script
-    assert 'set content of e to "o365pop-uid: evt-zoom"' in script
-    assert "meta content=" in script
+    assert "on error" not in script
+    assert "<html>" not in script
+    assert "meta content=" not in script
+    assert 'set content of e to "o365pop-uid: evt-zoom\\n\\nHi"' in script
 
 
 @pytest.mark.unit
