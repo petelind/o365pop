@@ -13,6 +13,7 @@ JSON presets describe **shape**, not live secrets. Encrypted token columns stay 
 | SYNC1.4-teams-html | `graph/SYNC1.4-teams-html/` | `chats.json`, `messages.json` | SYNC1.4 | `tests/integration/test_inbound_toss_teams.py` |
 | SYNC1.3-empty | `graph/SYNC1.3-empty/` | `inbox.json`, `chats.json` | SYNC1.3 | `tests/integration/test_sync_mailbox_empty.py` |
 | TASK1.1-q3-report | `graph/TASK1.1-q3-report/` | `lists.json`, `tasks.json`, `categories.json` | TASK1.1 | `tests/integration/test_publish_task_snapshot.py` |
+| CAL1.1-standup | `graph/CAL1.1-standup/` | `calendars.json`, `events.json` (+ `attachments/` at BPE-01) | CAL1.1 | `tests/integration/test_publish_calendar_snapshot.py` (BPE-01) |
 
 `inbox.json` / `chats.json` / `messages.json` are Graph-like `{ "value": [ ... ] }` lists. MIME is raw RFC822 (`message.eml`). FileGraphAdapter (SYNC) must read these paths as-is.
 

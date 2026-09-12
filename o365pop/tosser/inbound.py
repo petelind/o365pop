@@ -86,7 +86,7 @@ class InboundTosser:
     def toss_teams(self, message: dict[str, Any]) -> bool:
         """Synthesize and toss one chat line; persist ChatMap.
 
-        :param message: Chat line. Example: ``{"chat_id": "19:general", "body": "Ship it"}``
+        :param message: Chat line. Example: ``{"chat_id": "19:general", "body": "<p>Ship it</p>"}``
         :return: True if written. Example: ``True``
         """
         chat_id = str(message.get("chat_id") or "")
@@ -101,6 +101,7 @@ class InboundTosser:
             from_name=str(message.get("from_name") or "Teams"),
             body=str(message.get("body") or ""),
             chat_subject=str(message.get("chat_subject") or chat_id),
+            body_content_type=str(message.get("body_content_type") or "text"),
         )
         uidl = f"uid-teams-{graph_id}"
         address = reply_address(chat_id)

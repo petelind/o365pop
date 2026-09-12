@@ -30,6 +30,13 @@ Feature: SYNC Inbound Graph pull and toss into maildir
     And TossedMessage records source="teams" and that Message-ID
     And ChatMap maps chat "19:general" to that teams.* address
 
+  Scenario: SYNC1.4 Tosser keeps Teams HTML for Entourage
+    Given Graph chat "19:general" has a new HTML message from "Ada Lovelace"
+    When Celery runs sync_mailbox
+    Then the maildir message is multipart/alternative
+    And the text/html part contains the original markup
+    And the text/plain part contains the visible words without tags
+
   Scenario: SYNC1.3 Empty Inbox and no new chats is a successful no-op
     Given Graph Inbox and chats have no messages newer than the last sync
     When Celery runs sync_mailbox
