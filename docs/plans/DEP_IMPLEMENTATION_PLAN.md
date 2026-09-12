@@ -66,7 +66,7 @@ Rules: `do-test-first`, `do-small-increments`, `do-informative-logging`
 
 - [x] **1.1** `config.validate_bind()` — require `POP3_BIND`/`SMTP_BIND`; reject unspecified WAN; `ALLOW_LAN=1` is the only way to listen on all interfaces
 - [x] **1.2** Red: `tests/unit/test_bind_config.py`
-- [x] **1.3** `deploy/Dockerfile` — Python 3.14; entrypoints `worker`, `beat`, `popd`, `smtpd`
+- [x] **1.3** `deploy/Dockerfile` — Python 3.12+; entrypoints `worker`, `beat`, `popd`, `smtpd`
 - [x] **1.4** `deploy/docker-compose.yml` — redis, worker, beat, popd, smtpd; `network_mode: host`; volumes `data`, `maildir`, `spool`, `logs`
 - [x] **1.5** `deploy/libreelec/README.md` — `/storage/o365pop`, device-code over SSH, Entourage 110/587 no SSL
 - [x] **1.6** Wire popd/smtpd to `validate_bind` at startup (log `config` beat with bind+port, never password)

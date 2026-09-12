@@ -34,8 +34,8 @@ provision: _check-prereqs _venv _pip-install _db-init ## Install prerequisites, 
 _check-prereqs:
 	@echo "Checking prerequisites..."
 	@command -v $(PYTHON3) >/dev/null 2>&1 || { echo "❌ python3 not found"; exit 1; }
-	@$(PYTHON3) -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 14) else 1)' \
-		|| { echo "❌ Python 3.14+ required (found $$($(PYTHON3) --version))"; exit 1; }
+	@$(PYTHON3) -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)' \
+		|| { echo "❌ Python 3.12+ required (found $$($(PYTHON3) --version))"; exit 1; }
 	@command -v git >/dev/null 2>&1 || { echo "❌ git not found"; exit 1; }
 	@echo "✅ Prerequisites OK ($$($(PYTHON3) --version))"
 
@@ -77,8 +77,8 @@ popd: ## Start POP3 daemon (AUTH/POP feature)
 smtpd: ## Start SMTP daemon (SMTP feature)
 	@$(PYTHON) -m o365pop smtpd
 
-login: ## Device-code Microsoft login (AUTH feature)
-	@$(PYTHON) -m o365pop login
+login: ## Microsoft login (device-code; use LOGIN_FLAGS=--interactive for PKCE)
+	@$(PYTHON) -m o365pop login $(LOGIN_FLAGS)
 
 db-init: _db-init ## Recreate / apply SQLite schema
 

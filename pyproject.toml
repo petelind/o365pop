@@ -2,13 +2,13 @@
 name = "o365pop"
 version = "0.1.0"
 description = "Graph-to-POP/SMTP bridge for vintage mail clients"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 readme = "README.md"
 license = { file = "LICENSE" }
 
 [tool.ruff]
 line-length = 120
-target-version = "py314"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]

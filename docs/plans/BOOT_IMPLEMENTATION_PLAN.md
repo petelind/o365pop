@@ -1,10 +1,10 @@
 # BOOT — Implementation Plan
 
-**Feature**: BOOT Scaffold package, Celery, SQLite, logging  
-**Feature File**: none (prerequisite for all `act-1-bridge` features)  
-**GitHub Issues**: none yet  
-**Branch**: `feature/boot-scaffold`  
-**Agent**: Dr. Dobbs v2  
+**Feature**: BOOT Scaffold package, Celery, SQLite, logging
+**Feature File**: none (prerequisite for all `act-1-bridge` features)
+**GitHub Issues**: none yet
+**Branch**: `feature/boot-scaffold`
+**Agent**: Dr. Dobbs v2
 **Prerequisites**: Plan approval; `git init`
 
 BPE-01 adjustments: no Django apps, views, templates, HTMX, or Playwright. This slice is filesystem + pytest + logging only.
@@ -44,8 +44,8 @@ BPE-01 adjustments: no Django apps, views, templates, HTMX, or Playwright. This 
 
 ## Current State Assessment
 
-**Exists:** package, pytest, Celery app, SQLite schema, `logs/app.log`, Makefile.  
-**Python:** 3.14 (operator direction; SAO stack table updated from 3.12).  
+**Exists:** package, pytest, Celery app, SQLite schema, `logs/app.log`, Makefile.
+**Python:** 3.12+ (SAO stack table; floor lowered from a brief 3.14 lock).
 **Missing:** AUTH feature; Redis only required for live worker/beat.
 
 ---
@@ -105,4 +105,4 @@ Rules each step: `do-skeletons-first`, `do-test-first`, `pytest`, `do-informativ
 
 - BSP-07 Django welcome page does not apply: SAO forbids a web UI. Health is `python -m o365pop status`.
 - BSP-08 `gui.log` / HTMX / token consumption logs do not apply (no frontend, no in-app LLM).
-- Operator chose Python 3.14 over installing 3.12; stack lock updated in SAO.
+- Required Python is 3.12+ (`requires-python`, Makefile provision, CI, Dockerfile).

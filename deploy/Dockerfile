@@ -1,5 +1,5 @@
-# o365pop LibreELEC image — Python 3.14, host-network daemons (DEP1.1).
-FROM python:3.14-slim
+# o365pop LibreELEC image — Python 3.12+, host-network daemons (DEP1.1).
+FROM python:3.12-slim
 
 WORKDIR /app
 COPY requirements.txt .

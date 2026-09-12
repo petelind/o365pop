@@ -29,7 +29,7 @@ DTA Artifact Check:
   Executive Summary          | ✅ Present
   System Architecture        | ✅ §1 Application Blocks + §2 Integration
   Design Principles          | ✅ Present (daemon / tosser split)
-  Technology Stack           | ✅ Technology Stack Table (Python 3.14)
+  Technology Stack           | ✅ Technology Stack Table (Python 3.12+)
   Project Structure          | ✅ §3 Code Organization
   Testing Infrastructure     | ✅ §5 Test Strategy (daemon Trophy)
 ```
@@ -40,7 +40,7 @@ DTA-18 (MCP) and DTA-19 (AI agents / SAO §17) are **N/A** for v1. No redirect.
 
 ```
 Architecture & Code Organization Check:
-  Technology stack defined   | ✅ Python 3.14 package, sqlite, Celery, httpx/msal, aiosmtpd, Twisted POP3
+  Technology stack defined   | ✅ Python 3.12+ package, sqlite, Celery, httpx/msal, aiosmtpd, Twisted POP3
   Directory layout defined   | ✅ SAO §3
   Project structure exists   | ✅ o365pop/, tests/, docs/, Makefile, pyproject.toml, .venv
   CI/CD config               | ✅ .github/workflows/ci.yml (merge gate; no CD E2E)
