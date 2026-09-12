@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from cryptography.fernet import Fernet
 
+from o365pop.accounts.ports import TokenBundle
 from o365pop.cli import main
 
 
@@ -54,3 +57,47 @@ def test_login_without_encryption_key_exits_one(
     monkeypatch.chdir(tmp_path)
     assert main(["login"]) == 1
     assert "TOKEN_ENCRYPTION_KEY" in capsys.readouterr().err
+
+
+@pytest.mark.unit
+def test_login_interactive_flag_uses_loopback_port(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``--interactive`` stores tokens via the loopback port, not device-code.
+
+    :param monkeypatch: Env and port stubs
+    :param tmp_path: Isolated workspace
+    :param capsys: Capture stdout
+    :return: None
+    """
+    used: dict[str, bool] = {"interactive": False, "device": False}
+
+    def fake_interactive(client_id: str, tenant_id: str):
+        used["interactive"] = True
+        return SimpleNamespace(
+            login=lambda: TokenBundle(
+                access_token="eyJ0-interactive",
+                refresh_token="M.R3-interactive",
+                expires_in=3600,
+                username="denis@example.com",
+                oid="00000000-0000-0000-0000-000000000001",
+            )
+        )
+
+    def fake_device(client_id: str, tenant_id: str):
+        used["device"] = True
+        raise AssertionError("device-code must not run")
+
+    key = Fernet.generate_key().decode("ascii")
+    monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "var"))
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "var" / "o365pop.sqlite3"))
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", key)
+    monkeypatch.setenv("AZURE_CLIENT_ID", "11111111-2222-3333-4444-555555555555")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("o365pop.cli.live_interactive_port", fake_interactive)
+    monkeypatch.setattr("o365pop.cli.live_device_code_port", fake_device)
+    assert main(["login", "--interactive"]) == 0
+    assert used["interactive"] is True
+    assert used["device"] is False
+    assert "denis@example.com" in capsys.readouterr().out

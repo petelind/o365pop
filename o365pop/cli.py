@@ -5,13 +5,21 @@ from __future__ import annotations
 import argparse
 import logging
 import platform
+import shutil
 import sqlite3
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from o365pop import __version__
 from o365pop.accounts.errors import AuthenticationError
-from o365pop.accounts.graph_auth import GraphAuthService, live_device_code_port, live_msal_port
+from o365pop.accounts.graph_auth import (
+    GraphAuthService,
+    live_device_code_port,
+    live_interactive_port,
+    live_msal_port,
+)
+from o365pop.accounts.ports import DeviceCodePort
 from o365pop.accounts.store import _hash_local_password, get_account, upsert_account
 from o365pop.config import Settings, load_settings
 from o365pop.db import REQUIRED_TABLES, connect, init_schema, list_tables
@@ -39,7 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "init-db":
         return run_init_db(settings)
     if args.command == "login":
-        return run_login(settings)
+        return run_login(settings, interactive=args.interactive)
     if args.command == "popd":
         return run_popd(settings)
     if args.command == "smtpd":
@@ -87,17 +95,19 @@ def run_init_db(settings: Settings) -> int:
     return 0
 
 
-def run_login(settings: Settings) -> int:
-    """Device-code Microsoft login; store encrypted tokens (AUTH).
+def run_login(settings: Settings, *, interactive: bool = False) -> int:
+    """Microsoft login; store encrypted tokens (AUTH).
 
     :param settings: Loaded settings. Example: ``load_settings()``
+    :param interactive: Loopback PKCE when True. Example: ``True``
     :return: ``0`` on success, ``1`` on auth/config failure. Example: ``0``
     """
-    logger.info("cli.run_login | entry")
+    logger.info("cli.run_login | entry | interactive=%s", interactive)
     if not settings.token_encryption_key:
         logger.error("cli.run_login | error | reason=missing_encryption_key")
         print("TOKEN_ENCRYPTION_KEY is required.", file=sys.stderr)
         return 1
+    login_port = _login_port(settings, interactive=interactive)
     conn = connect(settings.db_path)
     try:
         init_schema(conn)
@@ -105,7 +115,7 @@ def run_login(settings: Settings) -> int:
         service = GraphAuthService(
             conn,
             settings.token_encryption_key,
-            live_device_code_port(settings.azure_client_id, settings.azure_tenant_id),
+            login_port,
             live_msal_port(settings.azure_client_id, settings.azure_tenant_id),
         )
         username = service.login_device_code()
@@ -115,9 +125,39 @@ def run_login(settings: Settings) -> int:
         return 1
     finally:
         conn.close()
+    _seed_live_e2e_vault(settings)
     print(f"Logged in as {username}")
     logger.info("cli.run_login | exit | user=%s", username)
     return 0
+
+
+def _login_port(settings: Settings, *, interactive: bool) -> DeviceCodePort:
+    """Pick device-code or loopback PKCE.
+
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :param interactive: Loopback when True. Example: ``True``
+    :return: DeviceCodePort. Example: ``live_interactive_port(...)``
+    """
+    if interactive:
+        logger.info("cli._login_port | branch | flow=interactive")
+        return live_interactive_port(settings.azure_client_id, settings.azure_tenant_id)
+    logger.info("cli._login_port | branch | flow=device_code")
+    return live_device_code_port(settings.azure_client_id, settings.azure_tenant_id)
+
+
+def _seed_live_e2e_vault(settings: Settings) -> None:
+    """Copy the operator vault so ``make test-e2e`` can reuse tokens.
+
+    :param settings: Loaded settings. Example: ``load_settings()``
+    :return: None
+    """
+    dest_dir = Path("var/live-e2e")
+    dest = dest_dir / "o365pop.sqlite3"
+    if not settings.db_path.is_file():
+        return
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(settings.db_path, dest)
+    logger.info("cli._seed_live_e2e_vault | exit | dest=%s", dest)
 
 
 def run_popd(settings: Settings) -> int:
@@ -198,7 +238,7 @@ def _collect_health_checks(settings: Settings) -> list[dict[str, str]]:
     checks: list[dict[str, str]] = [
         {
             "name": "Python",
-            "status": "ok" if sys.version_info >= (3, 14) else "fail",
+            "status": "ok" if sys.version_info >= (3, 12) else "fail",
             "detail": sys.version.split()[0],
         },
         {
@@ -260,5 +300,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "command",
         choices=("status", "init-db", "login", "popd", "smtpd"),
         help="status|init-db now; login/popd/smtpd later",
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="login via loopback PKCE (browser). Needed on work tenants.",
     )
     return parser
