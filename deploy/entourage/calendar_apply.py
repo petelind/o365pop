@@ -229,10 +229,9 @@ def _upsert_event(
         _apply_attachments(row, local_id, entourage, attachments_root)
         logger.info("taskd.apply | processing | uid=%s kind=calendar", row.id)
         return 1, 0
-    current = _event_by_id(entourage.list_events(), local_id)
-    if current is not None and _local_event_newer(current, row):
-        logger.info("taskd.apply | branch | uid=%s skipped_local_newer=true kind=calendar", row.id)
-        return 0, 0
+    # Do not call list_events() here. Live dumps content of every event and
+    # times out at 120s; parsed rows have no modification_date so the
+    # local-newer skip never fires. Graph wins this hop (same as live).
     entourage.update_event(local_id, properties)
     _apply_attachments(row, local_id, entourage, attachments_root)
     logger.info("taskd.apply | processing | uid=%s kind=calendar", row.id)

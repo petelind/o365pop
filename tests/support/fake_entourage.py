@@ -23,6 +23,7 @@ class FakeEntourage:
 
     def __init__(self) -> None:
         self._next_id = 1
+        self.list_events_calls = 0
         self._tasks: list[dict[str, Any]] = []
         self._events: list[dict[str, Any]] = []
         self._projects: list[dict[str, Any]] = []
@@ -154,6 +155,7 @@ class FakeEntourage:
 
         :return: Event dicts. Example: ``[{"id": "1", "subject": "Standup"}]``
         """
+        self.list_events_calls += 1
         return [copy.deepcopy(row) for row in self._events]
 
     def create_event(self, properties: dict[str, Any]) -> dict[str, Any]:
@@ -162,7 +164,7 @@ class FakeEntourage:
         :param properties: Event fields. Example: ``{"subject": "Standup"}``
         :return: Created record. Example: ``{"id": "1", "subject": "Standup"}``
         """
-        row = self._new_row(properties)
+        row = self._new_row(_normalize_event_properties(properties))
         row.setdefault("content", "")
         row.setdefault("categories", [])
         row.setdefault("project_id", None)
@@ -184,7 +186,7 @@ class FakeEntourage:
         :raises KeyError: if the event is missing
         """
         row = self._find(self._events, event_id)
-        row.update(properties)
+        row.update(_normalize_event_properties(properties))
         row["modification_date"] = _now()
         return copy.deepcopy(row)
 
@@ -259,6 +261,23 @@ class FakeEntourage:
             if row["id"] == row_id:
                 return row
         raise KeyError(row_id)
+
+
+def _normalize_event_properties(properties: dict[str, Any]) -> dict[str, Any]:
+    """Map EntouragePort body fields onto FakeEntourage ``content``.
+
+    :param properties: Event fields. Example: ``{"content_html": "<p>Hi</p>"}``
+    :return: Normalized fields. Example: ``{"content": "<p>Hi</p>", "content_is_html": True}``
+    """
+    props = dict(properties)
+    if "content_html" in props:
+        props["content"] = props.pop("content_html")
+        props["content_is_html"] = True
+        props.pop("content_plain", None)
+    elif "content_plain" in props:
+        props["content"] = props.pop("content_plain")
+        props["content_is_html"] = False
+    return props
 
 
 def _now() -> datetime:
