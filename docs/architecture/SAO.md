@@ -71,7 +71,7 @@ None. Operator surface is `python -m o365pop login` plus `logs/app.log`. No web 
 - Inbound chats: `/me/chats` + `/me/chats/{id}/messages` — tosser synthesizes RFC822 **with a stable reply map** (below)
 - To Do: `GET /me/todo/lists`, `GET /me/todo/lists/{id}/tasks`; `PATCH`/`DELETE` a task from Mac receipts
 - Outlook categories: `GET /me/outlook/masterCategories` (`color` is `preset0`–`preset24` or `none`)
-- Calendar: `GET /me/calendars`; `GET /me/calendarView` (window −30 / +180 days); `POST`/`PATCH`/`DELETE` `/me/events/{id}`; event attachments as files, not JSON base64
+- Calendar: `GET /me/calendars`; `GET /me/calendarView` (window −30 / +180 days) with `Prefer: outlook.body-content-type="text"`; if Graph still returns HTML, LibreELEC BeautifulSoup publishes already-plain `body` + `bodyContentType=text` (Mac `taskd` stays stdlib-only); `POST`/`PATCH`/`DELETE` `/me/events/{id}`; event attachments as files, not JSON base64
 - Outbound mail: `POST /me/sendMail` with `Content-Type: text/plain` and **base64-encoded** RFC822 (Graph rejects raw MIME: `ErrorMimeContentInvalidBase64String`)
 - Outbound Teams reply: `POST /chats/{chat-id}/messages` — never `sendMail`
 - Client: our `graph` package only. No Graph SDK. Mac `taskd` does not call Graph.

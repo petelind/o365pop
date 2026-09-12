@@ -108,6 +108,8 @@ Atomic write: `calendar/snapshot.json.tmp` → replace `calendar/snapshot.json`.
     "isAllDay": false,
     "location": "Room A",
     "bodyPreview": "Daily",
+    "body": "Please review the deck.",
+    "bodyContentType": "text",
     "categories": ["Work"],
     "attendees": [{"name": "Ada Lovelace", "email": "ada@contoso.com", "type": "required"}],
     "showAs": "busy",
@@ -140,6 +142,7 @@ Not applicable (SAO §17 N/A).
 | Where | Beat | Trigger | Must include |
 |---|---|---|---|
 | `tosser.calendar_snapshot.publish` | entry | Celery publish | calendars= events= |
+| `tosser.calendar_snapshot._public_event` | branch | body published | `body_plain=graph` or `body_plain=beautifulsoup` (never the notes) |
 | `tosser.calendar_snapshot.publish` | exit | snapshot written | path= bytes= |
 | `sync.tasks.sync_calendar` | exit | publish+apply | published=1 patched= created= |
 | `sync.tasks.sync_calendar` | error | Graph auth fail | reason=auth_failed |

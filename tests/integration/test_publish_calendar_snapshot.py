@@ -30,8 +30,9 @@ def test_publish_calendar_snapshot_atomic_standup(tmp_path: Path) -> None:
     assert payload["events"][0]["calendarId"] == "cal-work"
     assert payload["events"][0]["subject"] == "Standup"
     assert payload["events"][0]["location"] == "Room A"
-    assert payload["events"][0]["bodyContentType"] == "html"
-    assert "<strong>deck</strong>" in payload["events"][0]["body"]
+    assert payload["events"][0]["bodyContentType"] == "text"
+    assert "deck" in payload["events"][0]["body"]
+    assert "<strong>" not in payload["events"][0]["body"]
     assert payload["events"][0]["reminderMinutesBeforeStart"] == 15
     assert payload["events"][0]["attendees"][0]["email"] == "ada@contoso.com"
     assert payload["events"][0]["attachments"][0]["name"] == "agenda.pdf"

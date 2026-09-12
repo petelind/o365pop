@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from o365pop.graph.port import GraphPort
+from o365pop.tosser.plain_body import snapshot_plain_body
 
 logger = logging.getLogger(__name__)
 
@@ -275,7 +276,7 @@ def _public_calendar(row: dict[str, Any]) -> dict[str, Any]:
     """
     return {
         "id": str(row.get("id") or ""),
-        "displayName": str(row.get("displayName") or ""),
+        "displayName": str(row.get("displayName") or row.get("name") or ""),
         "isDefault": bool(row.get("isDefault")),
     }
 
@@ -286,12 +287,12 @@ def _public_event(row: dict[str, Any], calendar_id: str, graph: GraphPort) -> di
     :param row: Graph event. Example: ``{"id": "evt-standup", "subject": "Standup"}``
     :param calendar_id: Parent calendar. Example: ``"cal-work"``
     :param graph: GraphPort for attachment metadata. Example: ``FileGraphAdapter(case_dir)``
-    :return: Snapshot event. Example: ``{"id": "evt-standup", "calendarId": "cal-work"}``
+    :return: Snapshot event. Example: ``{"id": "evt-standup", "bodyContentType": "text"}``
     """
     categories = row.get("categories") or []
     names = [str(item) for item in categories] if isinstance(categories, list) else []
     event_id = str(row.get("id") or "")
-    attachments = [_public_attachment(att) for att in graph.list_event_attachments(event_id)]
+    body_content, body_type = _snapshot_body(row, event_id)
     return {
         "id": event_id,
         "calendarId": calendar_id,
@@ -301,6 +302,8 @@ def _public_event(row: dict[str, Any], calendar_id: str, graph: GraphPort) -> di
         "isAllDay": bool(row.get("isAllDay")),
         "location": _location_text(row.get("location")),
         "bodyPreview": str(row.get("bodyPreview") or ""),
+        "body": body_content,
+        "bodyContentType": body_type,
         "categories": names,
         "attendees": _public_attendees(row.get("attendees") or []),
         "isOrganizer": bool(row.get("isOrganizer")),
@@ -309,8 +312,28 @@ def _public_event(row: dict[str, Any], calendar_id: str, graph: GraphPort) -> di
         "sensitivity": str(row.get("sensitivity") or "normal"),
         "reminderMinutesBeforeStart": row.get("reminderMinutesBeforeStart"),
         "lastModifiedDateTime": str(row.get("lastModifiedDateTime") or ""),
-        "attachments": attachments,
+        "hasAttachments": bool(row.get("hasAttachments")) or bool(row.get("attachments")),
+        "attachments": [],
     }
+
+
+def _snapshot_body(row: dict[str, Any], event_id: str) -> tuple[str, str]:
+    """Publish already-plain notes: Graph text if honored, else BeautifulSoup.
+
+    :param row: Graph event. Example: ``{"body": {"contentType": "html", "content": "<p>deck</p>"}}``
+    :param event_id: Graph event id. Example: ``"evt-standup"``
+    :return: body, bodyContentType. Example: ``("deck", "text")``
+    """
+    body_obj = row.get("body") if isinstance(row.get("body"), dict) else {}
+    incoming_type = str(body_obj.get("contentType") or "text")
+    text, content_type, source = snapshot_plain_body(str(body_obj.get("content") or ""), incoming_type)
+    logger.info(
+        "tosser.calendar_snapshot._public_event | body_plain=%s | event_id=%s | content_type_in=%s",
+        source,
+        event_id,
+        incoming_type,
+    )
+    return text, content_type
 
 
 def _public_attachment(row: dict[str, Any]) -> dict[str, str]:
@@ -388,11 +411,18 @@ def _write_attachment_files(graph: GraphPort, events: list[dict[str, Any]], root
     :param root: ``calendar/attachments``. Example: ``Path("var/calendar/attachments")``
     :return: None
     """
-    for event in events:
+    for index, event in enumerate(events, start=1):
         event_id = str(event.get("id") or "")
-        if not event_id:
+        if not event_id or not event.get("hasAttachments"):
             continue
         attachments = graph.list_event_attachments(event_id)
+        event["attachments"] = [_public_attachment(att) for att in attachments]
+        if index % 50 == 0:
+            logger.info(
+                "tosser.calendar_snapshot.publish | attachments | processed=%s total=%s",
+                index,
+                len(events),
+            )
         for att in attachments:
             att_id = str(att.get("id") or "")
             name = str(att.get("name") or att_id or "attachment")

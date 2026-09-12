@@ -11,6 +11,12 @@ import httpx
 logger = logging.getLogger(__name__)
 
 GRAPH_ROOT = "https://graph.microsoft.com/v1.0"
+GRAPH_TIMEOUT = httpx.Timeout(300.0, connect=30.0)
+CALENDAR_VIEW_SELECT = (
+    "id,subject,start,end,isAllDay,location,bodyPreview,body,categories,attendees,"
+    "isOrganizer,type,showAs,sensitivity,reminderMinutesBeforeStart,lastModifiedDateTime,hasAttachments"
+)
+PREFER_TEXT_BODY = 'outlook.body-content-type="text"'
 
 
 class HttpGraphAdapter:
@@ -23,6 +29,7 @@ class HttpGraphAdapter:
     def __init__(self, access_token: str, client: httpx.Client | None = None) -> None:
         self._access_token = access_token
         self._client = client
+        self._owns_client = client is None
 
     def list_inbox_messages(self) -> list[dict[str, Any]]:
         """GET /me/mailFolders/inbox/messages.
@@ -144,23 +151,23 @@ class HttpGraphAdapter:
         :return: Calendars. Example: ``[{"id": "cal-work", "displayName": "Work"}]``
         """
         logger.info("HttpGraphAdapter.list_calendars | entry")
-        rows = list((self._get_json("/me/calendars").get("value") or []))
+        rows = self._collect_values("/me/calendars")
         editable = [row for row in rows if row.get("canEdit", True) is not False]
         logger.info("HttpGraphAdapter.list_calendars | exit | count=%s", len(editable))
         return editable
 
     def list_calendar_view(self, calendar_id: str, start: str, end: str) -> list[dict[str, Any]]:
-        """GET /me/calendars/{id}/calendarView.
+        """GET /me/calendars/{id}/calendarView with @odata.nextLink pagination.
 
         :param calendar_id: Graph calendar id. Example: ``"cal-work"``
         :param start: Window start ISO. Example: ``"2026-08-12T00:00:00Z"``
         :param end: Window end ISO. Example: ``"2027-03-10T00:00:00Z"``
         :return: Events. Example: ``[{"id": "evt-standup"}]``
         """
-        logger.info("HttpGraphAdapter.list_calendar_view | entry | calendar_id=%s", calendar_id)
-        query = f"startDateTime={start}&endDateTime={end}"
+        logger.info("HttpGraphAdapter.list_calendar_view | entry | calendar_id=%s prefer=text", calendar_id)
+        query = f"startDateTime={start}&endDateTime={end}&$top=100&$select={CALENDAR_VIEW_SELECT}"
         path = f"/me/calendars/{calendar_id}/calendarView?{query}"
-        rows = list((self._get_json(path).get("value") or []))
+        rows = self._collect_values(path, extra_headers={"Prefer": PREFER_TEXT_BODY})
         logger.info("HttpGraphAdapter.list_calendar_view | exit | count=%s", len(rows))
         return rows
 
@@ -246,15 +253,36 @@ class HttpGraphAdapter:
         logger.info("HttpGraphAdapter.create_event_attachment | exit | attachment_id=%s", body.get("id"))
         return body if isinstance(body, dict) else {"id": ""}
 
-    def _get_json(self, path: str) -> dict[str, Any]:
+    def _get_json(self, path: str, extra_headers: dict[str, str] | None = None) -> dict[str, Any]:
         """GET a JSON Graph resource.
 
         :param path: URL path. Example: ``"/me/chats"``
+        :param extra_headers: Extra request headers. Example: ``{"Prefer": PREFER_TEXT_BODY}``
         :return: Parsed object. Example: ``{"value": []}``
         """
-        response = self._request("GET", path)
+        response = self._request("GET", path, extra_headers=extra_headers)
         payload = response.json()
         return payload if isinstance(payload, dict) else {"value": []}
+
+    def _collect_values(self, path: str, extra_headers: dict[str, str] | None = None) -> list[dict[str, Any]]:
+        """Follow ``@odata.nextLink`` until all pages are read.
+
+        :param path: Initial Graph path. Example: ``"/me/calendars"``
+        :param extra_headers: Extra request headers. Example: ``{"Prefer": PREFER_TEXT_BODY}``
+        :return: Combined ``value`` rows. Example: ``[{"id": "evt-standup"}, ...]``
+        """
+        rows: list[dict[str, Any]] = []
+        next_path: str | None = path
+        pages = 0
+        while next_path:
+            payload = self._get_json(next_path, extra_headers=extra_headers)
+            chunk = list(payload.get("value") or [])
+            rows.extend(chunk)
+            pages += 1
+            link = payload.get("@odata.nextLink")
+            next_path = _graph_path_from_next_link(str(link)) if link else None
+        logger.info("HttpGraphAdapter._collect_values | exit | path=%s pages=%s count=%s", path, pages, len(rows))
+        return rows
 
     def _request(
         self,
@@ -264,6 +292,7 @@ class HttpGraphAdapter:
         content: bytes | None = None,
         json_body: dict[str, Any] | None = None,
         content_type: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         """Issue one Graph request with a bearer header.
 
@@ -272,20 +301,47 @@ class HttpGraphAdapter:
         :param content: Raw body. Example: ``b"Subject: Hi"``
         :param json_body: JSON body. Example: ``{"body": {"content": "On it"}}``
         :param content_type: Content-Type override. Example: ``"text/plain"``
+        :param extra_headers: Extra request headers. Example: ``{"Prefer": PREFER_TEXT_BODY}``
         :return: Response. Example: ``<Response [200]>``
         """
         headers = {"Authorization": f"Bearer {self._access_token}"}
         if content_type:
             headers["Content-Type"] = content_type
-        client = self._client or httpx.Client()
-        owns = self._client is None
-        try:
-            response = client.request(method, f"{GRAPH_ROOT}{path}", headers=headers, content=content, json=json_body)
-            response.raise_for_status()
-            return response
-        finally:
-            if owns:
-                client.close()
+        if extra_headers:
+            headers.update(extra_headers)
+        client = self._ensure_client()
+        response = client.request(method, f"{GRAPH_ROOT}{path}", headers=headers, content=content, json=json_body)
+        response.raise_for_status()
+        return response
+
+    def _ensure_client(self) -> httpx.Client:
+        """Return a reusable httpx client for pagination-heavy calls.
+
+        :return: Client. Example: ``httpx.Client(timeout=GRAPH_TIMEOUT)``
+        """
+        if self._client is None:
+            self._client = httpx.Client(timeout=GRAPH_TIMEOUT)
+        return self._client
+
+    def close(self) -> None:
+        """Close an adapter-owned httpx client.
+
+        :return: None
+        """
+        if self._owns_client and self._client is not None:
+            self._client.close()
+            self._client = None
+
+
+def _graph_path_from_next_link(link: str) -> str:
+    """Strip Graph host prefix from an ``@odata.nextLink`` URL.
+
+    :param link: Full next page URL. Example: ``"https://graph.microsoft.com/v1.0/me/calendars?..."``
+    :return: Path for ``_request``. Example: ``"/me/calendars?..."``
+    """
+    if link.startswith(GRAPH_ROOT):
+        return link[len(GRAPH_ROOT) :]
+    return link
 
 
 def _http_chat_line(chat: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
