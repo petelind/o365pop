@@ -12,4 +12,4 @@ alwaysApply: true
 - Integration tests: real maildir, real daemons, FileGraphAdapter fixtures. No `unittest.mock` on domain services.
 - Live Graph is `@pytest.mark.live_graph` only — never part of `make test`.
 - Operator surface is `python -m o365pop` plus `logs/app.log`. Do not add a welcome HTTP app.
-- Mac `taskd` must **not** import `o365pop.graph`, hold Azure tokens, or write Entourage’s `Database` file. Tasks are Apple Events + snapshot files, not POP.
+- Mac `taskd` must **not** import `o365pop.graph`, hold Azure tokens, or write Entourage’s `Database` file. Tasks and Calendar events are Apple Events + snapshot files, not POP.

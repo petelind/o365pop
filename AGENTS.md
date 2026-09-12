@@ -31,4 +31,4 @@ MIN contract: [`.cursor/rules/min-iteration.mdc`](.cursor/rules/min-iteration.md
 
 Active iteration: [`docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml`](docs/plans/iterations/ITER-20260905-1654-mail-bridge.yaml). Next implementable scenario: **SMTP SEND1.1** (S5).
 
-Entourage Tasks (Act 5) is spec-only until BPE-01: [`docs/plans/TASK_CHANGE_RECONCILIATION.md`](docs/plans/TASK_CHANGE_RECONCILIATION.md).
+Entourage Tasks (Act 5): [`docs/plans/TASK_CHANGE_RECONCILIATION.md`](docs/plans/TASK_CHANGE_RECONCILIATION.md). Entourage Calendar (Act 6) is spec-only until BPE-01: [`docs/plans/CAL_CHANGE_RECONCILIATION.md`](docs/plans/CAL_CHANGE_RECONCILIATION.md).

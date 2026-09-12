@@ -48,6 +48,14 @@ flowchart TD
     AS --> RC[receipts/]
     RC --> GP[Graph PATCH To Do]
   end
+
+  subgraph act6 [Act 6 Vintage client works Calendar]
+    E --> CS[Celery publishes calendar/snapshot.json]
+    CS --> TD
+    TD --> AE[osascript Entourage events project list category]
+    AE --> CR[calendar/receipts/]
+    CR --> GE[Graph POST PATCH DELETE events]
+  end
 ```
 
 Feature files: `docs/features/act-1-bridge/*.feature`. Phrase map: `docs/features/CATALOG.md`.

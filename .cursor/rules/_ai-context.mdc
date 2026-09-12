@@ -11,7 +11,7 @@ alwaysApply: true
 
 ## What Is o365pop
 
-Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. `popd` / `smtpd` only speak the wire protocols. Mac `taskd` syncs To Do into Entourage Tasks via AppleScript (not POP).
+Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. `popd` / `smtpd` only speak the wire protocols. Mac `taskd` syncs To Do and Outlook calendar into Entourage Tasks / Calendar via AppleScript (not POP).
 
 ---
 
@@ -21,15 +21,15 @@ Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk 
 Entourage --WG/LAN--> popd/smtpd --fs--> maildir/spool
      ^                    ^
      |                    Celery --> tosser --> graph (httpx) --> Microsoft 365
-  taskd (osascript)              +--> sqlite + tasks/snapshot.json
+  taskd (osascript)              +--> sqlite + tasks/snapshot.json + calendar/snapshot.json
      |
-  Entourage Tasks / Projects / Categories
+  Entourage Tasks / Calendar / Projects / Categories
 ```
 
 - **Tech stack:** Python 3.12+ package, SQLite, Celery + Redis, httpx + MSAL, aiosmtpd, Twisted POP3, maildir; Mac `taskd` Python 3.13 stdlib + osascript
-- **Key decisions:** Fido tosser; daemons never call Graph; Mac `taskd` never calls Graph; cleartext POP/SMTP on the WG bind; one mailbox; no web UI; Tasks are not mail
-- **Data:** `MailboxAccount`, `SyncSession`, `TossedMessage`, `ChatMap`; maildir inbound; spool outbound; task snapshot + receipts
-- **Full details:** `docs/architecture/SAO.md` (Design Principles + §§1–16). SAO §17 (agents) is N/A. TASK CR: `docs/plans/TASK_CHANGE_RECONCILIATION.md`.
+- **Key decisions:** Fido tosser; daemons never call Graph; Mac `taskd` never calls Graph; cleartext POP/SMTP on the WG bind; one mailbox; no web UI; Tasks and Calendar are not mail
+- **Data:** `MailboxAccount`, `SyncSession`, `TossedMessage`, `ChatMap`; maildir inbound; spool outbound; task + calendar snapshots and receipts
+- **Full details:** `docs/architecture/SAO.md` (Design Principles + §§1–16). SAO §17 (agents) is N/A. TASK CR: `docs/plans/TASK_CHANGE_RECONCILIATION.md`. CAL CR: `docs/plans/CAL_CHANGE_RECONCILIATION.md`.
 
 ```
 o365pop/{accounts,graph,tosser,mailstore,popd,smtpd,sync}
@@ -57,7 +57,8 @@ docs/{architecture,features,plans,ux,process}
 | TFK checklist | `docs/process/TFK_VERIFICATION.md` | Harness verification |
 | Program index | `docs/plans/O365POP_IMPLEMENTATION_PLAN.md` | Order and checkpoints |
 | Feature plans | `docs/plans/{BOOT,AUTH,SYNC,POP,SMTP,TEAM,DEP}_IMPLEMENTATION_PLAN.md` | BPE-01 per feature |
-| TASK change request | `docs/plans/TASK_CHANGE_RECONCILIATION.md` | Entourage Tasks (BPE-08; BPE-01 later) |
+| TASK change request | `docs/plans/TASK_CHANGE_RECONCILIATION.md` | Entourage Tasks (BPE-08 done; BPE-01 in progress) |
+| CAL change request | `docs/plans/CAL_CHANGE_RECONCILIATION.md` | Entourage Calendar (BPE-08 done; BPE-01 later) |
 | Clarifications | `docs/plans/O365POP_Clarifications.md` | Locked defaults |
 | Development rules | `.cursor/rules/*.mdc` | Auto-loaded — do not duplicate here |
 | Process playbook | `.cursor/playbooks/edda/` | When running a workflow |
