@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-o365pop is a local LibreELEC daemon that lets vintage mail clients (Entourage 2008 and peers) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. Separate POP and SMTP daemons own the wire protocols only. A second process on the Entourage Mac (`taskd`) syncs Microsoft To Do and Outlook categories into Entourage Tasks via Apple Events — not via POP.
+o365pop is a local LibreELEC daemon that lets vintage mail clients (Entourage 2008 and peers) talk to Microsoft 365. WireGuard is the security layer. POP3 and SMTP stay 1998-compatible (no TLS, USER/PASS, AUTH LOGIN). Celery owns Graph sync and Fido-style tossing. Separate POP and SMTP daemons own the wire protocols only. A second process on the Entourage Mac (`taskd`) syncs Microsoft To Do, Outlook calendar, and Outlook categories into Entourage Tasks / Calendar / Projects / Categories via Apple Events — not via POP.
 
 Key decisions:
 
@@ -11,6 +11,7 @@ Key decisions:
 - Honest Graph REST over `httpx` — no Microsoft SDK, no taciturn2/microsoft-mcp reuse.
 - Inbound: Graph → tosser → maildir. Outbound: Entourage SMTP → spool → scanner → Graph `sendMail` (raw MIME) **or** Teams chat post when the reply maps to a tossed chat.
 - Tasks: Graph To Do + masterCategories → snapshot files on LibreELEC → Mac `taskd` (Python + `osascript`) → Entourage Tasks / Projects / Categories. Two-way on task title, due, completed, and task delete.
+- Calendar: Graph calendars + `calendarView` → `/storage/o365pop/calendar/` snapshot → same Mac `taskd` → Entourage events. Two-way on subject, times, location, body, categories, project, reminder, show-as, sensitivity, attachments, create, and delete (CAL Q15–Q20).
 - POP/SMTP bind to the WireGuard address (optional LAN). Never the WAN NIC.
 - Device-code MSAL login; Fernet-encrypted tokens; local POP/SMTP password is not the Microsoft password.
 
@@ -22,7 +23,7 @@ Key decisions:
 4. **WireGuard is the crypto.** POP/SMTP stay 1998-cleartext on the tunnel bind, never the WAN NIC.
 5. **Honest Graph REST.** `httpx` + MSAL only — no Graph SDK, no taciturn2 client reuse.
 6. **Prove with real bytes.** Integration tests use real maildir, real daemons, and FileGraphAdapter fixtures — no service mocks.
-7. **Mac `taskd` never calls Graph.** LibreELEC never AppleScripts Entourage. Tasks do not go through POP. Do not write Entourage’s `Database` file.
+7. **Mac `taskd` never calls Graph.** LibreELEC never AppleScripts Entourage. Tasks and Calendar events do not go through POP. Do not write Entourage’s `Database` file.
 
 ## 1. Application Blocks
 
@@ -31,13 +32,13 @@ Key decisions:
 | Package | Responsibility |
 |---|---|
 | `accounts` | Mailbox account, encrypted Graph tokens, local POP/SMTP credential |
-| `graph` | Thin Graph REST client (`httpx`). Mail list, MIME `$value`, chats, MIME send, chat post, To Do lists/tasks, masterCategories |
-| `tosser` | Inbound convert+drop into maildir; outbound scan spool; **reply router** (mail vs Teams); **task snapshot** writer |
-| `mailstore` | Maildir + SMTP spool + tossed-index (dedup) + task snapshot/receipts dir |
+| `graph` | Thin Graph REST client (`httpx`). Mail list, MIME `$value`, chats, MIME send, chat post, To Do lists/tasks, masterCategories, calendars, calendarView, event attachments |
+| `tosser` | Inbound convert+drop into maildir; outbound scan spool; **reply router** (mail vs Teams); **task + calendar snapshot** writers |
+| `mailstore` | Maildir + SMTP spool + tossed-index (dedup) + task and calendar snapshot/receipts dirs |
 | `popd` | POP3 protocol only — reads maildir |
 | `smtpd` | SMTP protocol only — writes spool |
-| `sync` | Celery tasks + beat: pull Graph, toss inbound, scan outbound, publish task snapshot, apply task receipts |
-| `taskd` (Mac) | Launchd agent: pull snapshot every 60s; AppleScript Entourage Tasks/Projects/Categories; write receipts |
+| `sync` | Celery tasks + beat: pull Graph, toss inbound, scan outbound, publish task and calendar snapshots, apply receipts |
+| `taskd` (Mac) | Launchd agent: pull task + calendar snapshots every 60s; AppleScript Entourage Tasks/Events/Projects/Categories; write receipts |
 
 ### Module dependency rules
 
@@ -65,11 +66,12 @@ None. Operator surface is `python -m o365pop login` plus `logs/app.log`. No web 
 ### External: Microsoft Graph REST
 
 - Base: `https://graph.microsoft.com/v1.0`
-- Auth: MSAL public client, device-code flow, scopes `Mail.Read`, `Mail.Send`, `Chat.ReadWrite`, `User.Read`, `Tasks.ReadWrite`, `MailboxSettings.Read`, `offline_access`
+- Auth: MSAL public client, device-code flow, scopes `Mail.Read`, `Mail.Send`, `Chat.ReadWrite`, `User.Read`, `Tasks.ReadWrite`, `MailboxSettings.Read`, `Calendars.ReadWrite`, `offline_access`
 - Inbound mail: list Inbox (`/me/mailFolders/inbox/messages`) then `GET /me/messages/{id}/$value` for raw RFC822
 - Inbound chats: `/me/chats` + `/me/chats/{id}/messages` — tosser synthesizes RFC822 **with a stable reply map** (below)
 - To Do: `GET /me/todo/lists`, `GET /me/todo/lists/{id}/tasks`; `PATCH`/`DELETE` a task from Mac receipts
 - Outlook categories: `GET /me/outlook/masterCategories` (`color` is `preset0`–`preset24` or `none`)
+- Calendar: `GET /me/calendars`; `GET /me/calendarView` (window −30 / +180 days); `POST`/`PATCH`/`DELETE` `/me/events/{id}`; event attachments as files, not JSON base64
 - Outbound mail: `POST /me/sendMail` with `Content-Type: text/plain` and **base64-encoded** RFC822 (Graph rejects raw MIME: `ErrorMimeContentInvalidBase64String`)
 - Outbound Teams reply: `POST /chats/{chat-id}/messages` — never `sendMail`
 - Client: our `graph` package only. No Graph SDK. Mac `taskd` does not call Graph.
@@ -116,13 +118,32 @@ POP cannot create Entourage Tasks. `X-Message-Flag` is ignored on RETR. A `VTODO
 
 | Graph | Entourage | Sync |
 |---|---|---|
-| To Do list (`/me/todo/lists`) | Project | Create if missing; rename when `displayName` changes; delete Project if the list is gone |
+| To Do list (`/me/todo/lists`) | Project | Create if missing; rename when `displayName` changes; delete Project when the list is gone (TASK1.4). Calendars do not join Projects (Q15). |
 | todoTask | Task | Create/update title, due, completed; `content` holds `o365pop-uid: {task-id}`; list → Project; `categories[]` → Entourage categories |
 | masterCategory | Category | Create if missing; rename with `displayName`; set color from Graph `color` via palette map; delete only sync-created categories |
 
 Two-way task fields: title, due, completed, task delete. Last write wins (`modification date` vs `lastModifiedDateTime`). Tasks without `o365pop-uid:` stay local. Graph owns the list and category **catalog**.
 
 Do **not** mint Tasks as RFC822. Do **not** write `~/Documents/Microsoft User Data/**/Database`.
+
+### Calendar ↔ Entourage (not POP)
+
+Meeting Request mail and `.ics` attachments are not the Calendar product. The path is a **snapshot + Mac AppleScript** hop (BPE-08 `CAL_CHANGE_RECONCILIATION.md`).
+
+**LibreELEC (Celery):** pull mailbox calendars and `calendarView` (−30 / +180 days); write atomic `/storage/o365pop/calendar/snapshot.json` plus `calendar/attachments/{eventId}/`; apply Mac receipts (`POST`/`PATCH`/`DELETE` Graph events and attachments).
+
+**Mac `taskd` (same launchd agent as Tasks, every 60s):** read `CAL_SNAPSHOT_PATH`; AppleScript Entourage `event` (`project list`, `category`); write receipts. Unreachable LibreELEC is CAL1.8 (same quiet retry as TASK1.8).
+
+| Graph | Entourage | Sync |
+|---|---|---|
+| Calendar (`/me/calendars`) | mailbox container only | Sync events from all mailbox calendars (Q18). `displayName` does **not** create or rename an Entourage Project |
+| event / calendarView occurrence | event | Create/update subject, start, end, all-day, location, body; `content` holds `o365pop-uid:`; first `categories[]` name → Project (create if missing); uncategorized → empty project list; `categories[]` → category list (catalog is TASK); reminder; show-as; sensitivity; file attachments |
+| event attendees | text in `content` | Display only. Do not set `to recipients`. Do not PATCH Graph attendees |
+| event attachments | event file attachments | Bytes on disk under `calendar/attachments/{eventId}/` |
+
+Two-way event fields: Q20 set plus create (Q19) and delete. Last write wins. Untagged Entourage events **POST** to the default mailbox calendar; next snapshot stamps the uid. Graph owns the category **catalog** (TASK). No shared/group/room calendars in v1.
+
+Do **not** mint Calendar as RFC822. Do **not** write Entourage’s `Database` file.
 
 ### Client-facing: POP3 + SMTP
 
@@ -133,7 +154,7 @@ Do **not** mint Tasks as RFC822. Do **not** write `~/Documents/Microsoft User Da
 ### Inter-process
 
 - Redis broker + result backend (taciturn2 default).
-- Filesystem message base: maildir (inbound), spool (outbound), `tasks/snapshot.json` + `tasks/receipts/` (Entourage Tasks).
+- Filesystem message base: maildir (inbound), spool (outbound), `tasks/snapshot.json` + `tasks/receipts/` (Entourage Tasks), `calendar/snapshot.json` + `calendar/receipts/` + `calendar/attachments/` (Entourage Calendar).
 - SQLite for account, sync sessions, tossed-index, task-list/category join (LibreELEC). Mac keeps a local uid map next to `taskd`.
 
 ## 3. Code Organization
@@ -142,11 +163,11 @@ Do **not** mint Tasks as RFC822. Do **not** write `~/Documents/Microsoft User Da
 o365pop/                 # installable package (config, celery_app, cli, db)
   accounts/              # MailboxAccount, token helpers, device-code login
   graph/                  # GraphPort + HttpGraphAdapter
-  tosser/                 # inbound_tosser, outbound_scanner, mime_factory, router, task_snapshot
+  tosser/                 # inbound_tosser, outbound_scanner, mime_factory, router, task_snapshot, calendar_snapshot
   mailstore/              # MaildirStore, SpoolStore
   popd/                   # Twisted POP3 daemon (IMailboxPOP3 → maildir)
   smtpd/                  # aiosmtpd handler
-  sync/                   # Celery tasks (pull, toss, scan, cleanup, task snapshot)
+  sync/                   # Celery tasks (pull, toss, scan, cleanup, task + calendar snapshot)
 tests/{unit,integration,fixtures,support}
 deploy/{Dockerfile,docker-compose.yml,libreelec/,entourage/}   # entourage = Mac taskd
 logs/app.log
@@ -163,10 +184,11 @@ Reuse **patterns** from taciturn2 (see Context Map in the plan). Do not vendor t
 | Maildir | RFC822 messages Entourage collects |
 | Spool `new/` `retry/` `sent/` `failed/` | Outbound RFC822 from SMTP |
 | `tasks/snapshot.json` + `tasks/receipts/` | Task catalog for Mac `taskd`; Entourage→Graph receipts |
+| `calendar/snapshot.json` + `calendar/receipts/` + `calendar/attachments/` | Calendar catalog for Mac `taskd`; Entourage→Graph receipts; attachment bytes |
 | Redis | Celery only — not a message store |
 | Encrypted fields | Graph access + refresh tokens (Fernet, `TOKEN_ENCRYPTION_KEY`) |
 
-Single `MailboxAccount` row in v1. POP UIDL = stable hash of Graph id (or generated id for synthesized Teams mail). `DELE` removes from maildir only; `TossedMessage` prevents re-toss and stores the RFC822 `Message-ID` used for reply routing. **Task** delete is not POP DELE: a uid-tagged Entourage delete is a Graph task `DELETE` (Q12).
+Single `MailboxAccount` row in v1. POP UIDL = stable hash of Graph id (or generated id for synthesized Teams mail). `DELE` removes from maildir only; `TossedMessage` prevents re-toss and stores the RFC822 `Message-ID` used for reply routing. **Task** delete is not POP DELE: a uid-tagged Entourage delete is a Graph task `DELETE` (Q12). **Calendar** delete is the same shape for uid-tagged events (Q19/Q20).
 
 ## 5. Test Strategy
 
@@ -185,7 +207,7 @@ TFK-01 re-run 2026-09-05 against Edda v73. Stock Trophy (behave-django + Playwri
 
 | Level | Weight | Runner | What it proves |
 |---|---|---|---|
-| Unit | Thin | `pytest -m unit` | Pure logic: chat address codec, MIME factory, reply router, task snapshot/receipt parse, Fernet vault, AUTH LOGIN decoder, POP command parse. Do **not** test sqlite3/`mailbox` framework behavior. Mac `osascript` is proven live on the Entourage host, not in CI. |
+| Unit | Thin | `pytest -m unit` | Pure logic: chat address codec, MIME factory, reply router, task/calendar snapshot/receipt parse, Fernet vault, AUTH LOGIN decoder, POP command parse. Do **not** test sqlite3/`mailbox` framework behavior. Mac `osascript` is proven live on the Entourage host, not in CI. |
 | Integration | **Thick** | `pytest -m integration` | Feature works with real maildir, real aiosmtpd, real Twisted POP daemon, real sqlite, Celery `task_always_eager`. Graph via `FileGraphAdapter` (disk JSON/MIME) or a local HTTP fixture server. **No `unittest.mock` on services.** |
 | Acceptance | Spec | Gherkin in `docs/features/act-*/` | Executable requirements. Each scenario maps to a pytest module in the Step Library Catalog. No behave runner. |
 | E2E / live | Selective | `@pytest.mark.live_graph` | Device-code against Denis’s tenant. **Not** a PR merge gate. No Playwright. |
@@ -205,7 +227,7 @@ TFK-01 re-run 2026-09-05 against Edda v73. Stock Trophy (behave-django + Playwri
 | `make test-integration` | `pytest tests/integration/ -m integration` |
 | `make test-log-story` | `pytest -m log_story` — caplog beats via `assert_log_story` |
 | `make test-live-graph` | `pytest -m live_graph` — operator-only |
-| `make test-e2e` | `pytest tests/live/ -m live_graph -s` — captured-login journey (Acts 1–4) |
+| `make test-e2e` | `pytest tests/live/ -m live_graph -s` — captured-login journey (Acts 1–4; Act 5–6 on the Entourage Mac) |
 
 Default collection **excludes** `live_graph`. `make test-at` / `make test-agent-*` are documented no-ops (TFK-05). `make test-e2e` is the live journey, not Playwright.
 
@@ -266,7 +288,7 @@ Format in `logs/app.log`: `{logger} | {Class.method} | {beat} | key=value`. Beat
 
 ## 6. Performance & Scalability
 
-- One user, one worker (`prefetch=1`), beat every 2 minutes inbound / 30 seconds outbound / **60 seconds** task snapshot
+- One user, one worker (`prefetch=1`), beat every 2 minutes inbound / 30 seconds outbound / **60 seconds** task snapshot / **60 seconds** calendar snapshot
 - Graph page size ≤ 50; respect `Retry-After`
 - Soft time limit 10 minutes per sync (LibreELEC, not taciturn2’s 55-minute task dumps)
 - Mac `taskd` interval: 60 seconds (operator CR)
@@ -280,14 +302,14 @@ Copy taciturn2 `sync_user_o365_data` shape:
 - SoftTimeLimit: mark failed, return error dict
 - Outbound send fail: leave message in `spool/retry/`; after N attempts move to `spool/failed/`
 - Never delete Graph mail because POP `DELE` happened
-- Task receipt apply: same auth-fail / 429 shape as mail sync; do not retry-lock the mailbox
-- **Mac `taskd` if LibreELEC is down** (timeout, connection refused, share missing): catch, log WARNING `reachability=down`, do not raise, do not exit, do not print a traceback. Leave Entourage unchanged. Queue receipts locally. Retry on the next 60s tick until the box is back (Q14 / TASK1.8)
+- Task and calendar receipt apply: same auth-fail / 429 shape as mail sync; do not retry-lock the mailbox
+- **Mac `taskd` if LibreELEC is down** (timeout, connection refused, share missing): catch, log WARNING `reachability=down`, do not raise, do not exit, do not print a traceback. Leave Entourage unchanged. Queue receipts locally. Retry on the next 60s tick until the box is back (Q14 / TASK1.8 / CAL1.8)
 
 ## 8. Infrastructure
 
 - Runtime: Docker on LibreELEC (`service.system.docker`), `--network host`
 - Compose services: `redis`, `worker`, `beat`, `popd`, `smtpd`
-- Persist `/storage/o365pop/{data,maildir,spool,logs,tasks}`
+- Persist `/storage/o365pop/{data,maildir,spool,logs,tasks,calendar}`
 - Listen: `POP3_BIND` / `SMTP_BIND` (WireGuard IP). Default not `0.0.0.0` unless `ALLOW_LAN=1`
 - Mac: `deploy/entourage/` + launchd (`taskd` every 60s). Entourage host is macOS 10.14.6 + Office 2008 (pilot: `Deniss-MacBook-Pro-2.local`)
 
@@ -316,8 +338,9 @@ Environment / `.env` on `/storage` (not in the image):
 - `MAILBOX_USER`, `MAILBOX_PASSWORD` (local POP/SMTP)
 - `POP3_BIND`, `POP3_PORT`, `SMTP_BIND`, `SMTP_PORT`
 - `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
-- `GRAPH_POLL_SECONDS`, `SPOOL_SCAN_SECONDS`, `TASK_SNAPSHOT_SECONDS` (LibreELEC publish; default 60)
-- Mac `taskd`: `TASK_SNAPSHOT_URL` or local/mount path to `snapshot.json`; `TASK_POLL_SECONDS` (default 60)
+- `GRAPH_POLL_SECONDS`, `SPOOL_SCAN_SECONDS`, `TASK_SNAPSHOT_SECONDS`, `CAL_SNAPSHOT_SECONDS` (LibreELEC publish; default 60)
+- `CAL_WINDOW_PAST_DAYS` (default 30), `CAL_WINDOW_FUTURE_DAYS` (default 180)
+- Mac `taskd`: `TASK_SNAPSHOT_PATH` / `CAL_SNAPSHOT_PATH` (or URL) to each `snapshot.json`; `TASK_POLL_SECONDS` (default 60)
 
 ## 13. Security
 
@@ -326,11 +349,11 @@ Environment / `.env` on `/storage` (not in the image):
 - Local mailbox password ≠ Microsoft password.
 - Tokens encrypted at rest. Device-code login over SSH, not a browser on LibreELEC.
 - Entourage must not be given the Azure password.
-- Mac `taskd` holds no Graph tokens. Snapshot and receipts are not secrets; still do not log task bodies that might contain mail.
+- Mac `taskd` holds no Graph tokens. Snapshot and receipts are not secrets; still do not log task/event bodies or attachment bytes.
 
 ## 14. Backup & Recovery
 
-Back up `/storage/o365pop/data` (SQLite + tokens), maildir, and `tasks/`. Spool `failed/` is operator-visible. Token loss ⇒ device-code login again. Rebuild of Entourage Tasks from a fresh snapshot is the Mac recovery path (uid map can be reconstructed from `o365pop-uid:` in task content).
+Back up `/storage/o365pop/data` (SQLite + tokens), maildir, `tasks/`, and `calendar/`. Spool `failed/` is operator-visible. Token loss ⇒ device-code login again. Rebuild of Entourage Tasks and Calendar from a fresh snapshot is the Mac recovery path (uid map can be reconstructed from `o365pop-uid:` in task/event content).
 
 ## 15. Developer Experience
 
@@ -346,7 +369,7 @@ Back up `/storage/o365pop/data` (SQLite + tokens), maildir, and `tasks/`. Spool 
 - Process: `docs/process/MODUS_OPERANDI.md`; ADE: `.cursor/rules/_ai-context.mdc` (Cursor)
 - Feature files in `docs/features/act-*/`; phrase map in `docs/features/CATALOG.md`
 - Fixture catalog in `tests/fixtures/CATALOG.md`
-- Plan in `docs/plans/O365POP_IMPLEMENTATION_PLAN.md`; TASK CR in `docs/plans/TASK_CHANGE_RECONCILIATION.md`
+- Plan in `docs/plans/O365POP_IMPLEMENTATION_PLAN.md`; TASK CR in `docs/plans/TASK_CHANGE_RECONCILIATION.md`; CAL CR in `docs/plans/CAL_CHANGE_RECONCILIATION.md`
 - Update `_ai-context.mdc` when SAO sections change
 
 ## Technology Stack Table
@@ -359,17 +382,17 @@ Back up `/storage/o365pop/data` (SQLite + tokens), maildir, and `tasks/`. Spool 
 | Graph | `httpx` + `msal` |
 | SMTP server | `aiosmtpd` |
 | POP server | **Twisted** `twisted.mail.pop3` + `MaildirMailbox` |
-| Tasks client | Mac `taskd` + `osascript` → Microsoft Entourage |
-| Message base | stdlib `mailbox.Maildir` + `tasks/snapshot.json` |
+| Tasks / Calendar client | Mac `taskd` + `osascript` → Microsoft Entourage |
+| Message base | stdlib `mailbox.Maildir` + `tasks/snapshot.json` + `calendar/snapshot.json` |
 | DB | SQLite |
 | Deploy | Docker Compose on LibreELEC; launchd on the Entourage Mac |
 
 ## SAO sections that govern implementation
 
 - §1 Application Blocks — daemon vs tosser vs Mac `taskd`
-- §2 Integration — Graph REST + POP/SMTP dialect + Tasks snapshot hop
+- §2 Integration — Graph REST + POP/SMTP dialect + Tasks and Calendar snapshot hops
 - §3 Code Organization
-- §4 Data Architecture — tossed-index, local DELE, task snapshot
+- §4 Data Architecture — tossed-index, local DELE, task + calendar snapshots
 - §5 Test Strategy — no mocks in integration; osascript not in CI
 - §7 Error Handling — taciturn2 sync failure shape
 - §8 Infrastructure — LibreELEC / WireGuard binds / Mac launchd

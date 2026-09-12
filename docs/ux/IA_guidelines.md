@@ -10,14 +10,15 @@
 | Operator log | Denis | `logs/app.log` — `{logger} \| {Class.method} \| {beat} \| key=value` |
 | Mail client | Entourage 2008 | POP3 :110, SMTP :587, no TLS, USER/PASS / AUTH LOGIN |
 | Tasks | Entourage 2008 | Tasks list, Projects (To Do lists), Categories (Outlook colors) via Mac `taskd` |
+| Calendar | Entourage 2008 | Calendar events; Project from event category name (Q15); Categories via Mac `taskd` |
 | Compose | Denis | LibreELEC Docker — not an in-app screen |
 
 ## Information architecture
 
 - **One mailbox.** No tenant switcher, no account picker.
 - **Teams appears as mail.** From/Reply-To are `teams.{chat_b32}@o365pop.local`, never the person’s real SMTP address.
-- **To Do lists appear as Entourage Projects.** Outlook categories appear as Entourage categories (color mapped). Tasks do **not** appear as mail.
-- **Failures are files + logs.** `spool/failed/` and beat `error` — no toast, no modal. Task apply errors: Mac `taskd` log + LibreELEC `logs/app.log`. Proxy unreachable is a WARNING retry, not a crash.
+- **To Do lists appear as Entourage Projects.** Outlook events join a Project by **category name** (Q15); uncategorized events stay on Calendar only. Outlook calendar names do not become Projects. Outlook categories appear as Entourage categories (color mapped). Tasks and Calendar events do **not** appear as mail.
+- **Failures are files + logs.** `spool/failed/` and beat `error` — no toast, no modal. Task/calendar apply errors: Mac `taskd` log + LibreELEC `logs/app.log`. Proxy unreachable is a WARNING retry, not a crash.
 
 ## Operator CLI conventions
 
@@ -28,7 +29,7 @@
 
 ## Entourage (client “screens”)
 
-Treat Entourage folders and compose windows as the only human mail UI. Treat Entourage Tasks / Projects / Categories as the Tasks UI (`taskd`, not POP). o365pop must not require SSL, OAuth, or modern IMAP. Local password ≠ Microsoft password.
+Treat Entourage folders and compose windows as the only human mail UI. Treat Entourage Tasks / Calendar / Projects / Categories as the non-mail UI (`taskd`, not POP). o365pop must not require SSL, OAuth, or modern IMAP. Local password ≠ Microsoft password.
 
 ## Accessibility / E2E selectors
 

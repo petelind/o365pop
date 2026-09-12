@@ -37,7 +37,7 @@ def queue_calendar_receipts(
     live_uids: set[str] = set()
     for event in entourage.list_events():
         queued += _queue_live_event(event, by_id, uid_map, new_dir, live_uids)
-    queued += _queue_create_events(entourage, uid_map, new_dir)
+    queued += _queue_create_events(entourage, uid_map, snapshot, new_dir)
     queued += _queue_deleted_events(live_uids, by_id, uid_map, new_dir)
     return queued
 
@@ -71,15 +71,19 @@ def _queue_live_event(
     return 1
 
 
-def _queue_create_events(entourage: EntouragePort, uid_map: UidMap, new_dir: Path) -> int:
-    """Queue POST receipts for untagged local events.
+def _queue_create_events(entourage: EntouragePort, uid_map: UidMap, snapshot: CalendarSnapshot, new_dir: Path) -> int:
+    """Queue POST receipts for untagged local events onto the default calendar.
 
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
+    :param snapshot: Last pulled calendar snapshot. Example: ``parse_calendar_snapshot({...})``
     :param new_dir: receipts/new. Example: ``Path("receipts/new")``
     :return: Queued creates. Example: ``1``
     """
     queued = 0
+    calendar_id = _default_calendar_id(snapshot, uid_map)
+    if not calendar_id:
+        return 0
     joined_locals = set(uid_map.events.values())
     for event in entourage.list_events():
         local_id = str(event.get("id") or "")
@@ -87,13 +91,27 @@ def _queue_create_events(entourage: EntouragePort, uid_map: UidMap, new_dir: Pat
             continue
         if parse_uid(str(event.get("content") or "")):
             continue
-        calendar_id = _calendar_id_for_project(str(event.get("project_id") or ""), uid_map)
-        if not calendar_id:
-            continue
         payload = _create_receipt(local_id, calendar_id, event)
         _write_receipt(new_dir, payload, filename=f"local-{local_id}.json")
         queued += 1
     return queued
+
+
+def _default_calendar_id(snapshot: CalendarSnapshot, uid_map: UidMap) -> str:
+    """Return the default mailbox calendar id, else the sole indexed calendar.
+
+    :param snapshot: Parsed snapshot. Example: ``parse_calendar_snapshot({...})``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: Calendar id or empty. Example: ``"cal-work"``
+    """
+    for row in snapshot.calendars:
+        if row.is_default:
+            return row.id
+    if snapshot.calendars:
+        return snapshot.calendars[0].id
+    if len(uid_map.calendars) == 1:
+        return next(iter(uid_map.calendars))
+    return ""
 
 
 def _queue_deleted_events(

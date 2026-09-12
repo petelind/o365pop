@@ -47,6 +47,8 @@ def test_calendar_snapshot_create_standup(
     assert "o365pop-uid: evt-standup" in event["content"]
     assert "Ada Lovelace" in event["content"]
     assert "ada@contoso.com" in event["content"]
+    assert "<strong>deck</strong>" in event["content"]
+    assert event.get("content_is_html") is True
     assert event["to_recipients"] == []
     assert "Work" in event["categories"]
     assert event["reminder_minutes"] == 15
@@ -54,6 +56,7 @@ def test_calendar_snapshot_create_standup(
     assert event["sensitivity"] == "normal"
     project = next(row for row in entourage.list_projects() if row["id"] == event["project_id"])
     assert project["name"] == "Work"
+    assert "Calendar" not in {row["name"] for row in entourage.list_projects()}
     start = event["start"].astimezone()
     end = event["end"].astimezone()
     assert (start.year, start.month, start.day, start.hour, start.minute) == (2026, 9, 12, 9, 0)

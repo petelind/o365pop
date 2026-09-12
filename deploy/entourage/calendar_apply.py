@@ -10,7 +10,6 @@ from typing import Any
 
 from deploy.entourage.apply import (
     _category_by_name,
-    _project_by_id,
     _project_by_name,
     format_uid,
     parse_iso,
@@ -65,93 +64,45 @@ def apply_calendar_snapshot(
 def _sync_calendar_projects(
     calendars: tuple[SnapshotCalendar, ...], entourage: EntouragePort, uid_map: UidMap
 ) -> dict[str, int]:
-    """Create, rename, or drop calendar joins on shared Projects.
+    """Index mailbox calendars without creating Projects (Q15 C).
 
-    :param calendars: Snapshot calendars. Example: ``(SnapshotCalendar("cal-work", "Work"),)``
+    :param calendars: Snapshot calendars. Example: ``(SnapshotCalendar("cal-work", "Calendar"),)``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
-    :return: Counts. Example: ``{"projects_created": 1, "projects_renamed": 0, "calendar_joins_removed": 0}``
+    :return: Counts. Example: ``{"projects_created": 0, "projects_renamed": 0, "calendar_joins_removed": 0}``
     """
-    created = renamed = removed = 0
+    _ = entourage
     seen: set[str] = set()
     for row in calendars:
         seen.add(row.id)
-        created += _ensure_calendar_project(row, entourage, uid_map)
-        renamed += _rename_calendar_project_if_needed(row, entourage, uid_map)
-    removed = _delete_missing_calendar_joins(seen, entourage, uid_map)
+        uid_map.calendars[row.id] = ""
+        logger.info(
+            "taskd.apply | branch | calendar_is_not_project=true name=%s graph=%s",
+            row.display_name,
+            row.id,
+        )
+    removed = _drop_missing_calendar_ids(seen, uid_map)
     return {
-        "projects_created": created,
-        "projects_renamed": renamed,
+        "projects_created": 0,
+        "projects_renamed": 0,
         "calendar_joins_removed": removed,
     }
 
 
-def _ensure_calendar_project(row: SnapshotCalendar, entourage: EntouragePort, uid_map: UidMap) -> int:
-    """Join or create a Project for one Outlook calendar.
-
-    :param row: Snapshot calendar. Example: ``SnapshotCalendar("cal-garden", "Garden")``
-    :param entourage: EntouragePort. Example: ``FakeEntourage()``
-    :param uid_map: Joins. Example: ``UidMap()``
-    :return: 1 if created else 0. Example: ``1``
-    """
-    if row.id in uid_map.calendars:
-        return 0
-    existing = _project_by_name(entourage.list_projects(), row.display_name)
-    if existing is not None:
-        uid_map.calendars[row.id] = str(existing["id"])
-        logger.info("taskd.apply | processing | calendar_join graph=%s name=%s", row.id, row.display_name)
-        return 0
-    project = entourage.create_project(row.display_name)
-    uid_map.calendars[row.id] = str(project["id"])
-    logger.info("taskd.apply | processing | project_create graph=%s name=%s kind=calendar", row.id, row.display_name)
-    return 1
-
-
-def _rename_calendar_project_if_needed(row: SnapshotCalendar, entourage: EntouragePort, uid_map: UidMap) -> int:
-    """Rename joined Project when calendar displayName changed.
-
-    :param row: Snapshot calendar. Example: ``SnapshotCalendar("cal-garden", "Yard")``
-    :param entourage: EntouragePort. Example: ``FakeEntourage()``
-    :param uid_map: Joins. Example: ``UidMap()``
-    :return: 1 if renamed else 0. Example: ``1``
-    """
-    project_id = uid_map.calendars.get(row.id)
-    if not project_id:
-        return 0
-    current = _project_by_id(entourage.list_projects(), project_id)
-    if current is None or current.get("name") == row.display_name:
-        return 0
-    conflict = _project_by_name(entourage.list_projects(), row.display_name)
-    if conflict is not None and str(conflict.get("id")) != project_id:
-        logger.warning(
-            "taskd.apply | branch | project_name_conflict=true graph=%s name=%s",
-            row.id,
-            row.display_name,
-        )
-        return 0
-    entourage.rename_project(project_id, row.display_name)
-    logger.info("taskd.apply | processing | project_rename graph=%s name=%s kind=calendar", row.id, row.display_name)
-    return 1
-
-
-def _delete_missing_calendar_joins(seen: set[str], entourage: EntouragePort, uid_map: UidMap) -> int:
-    """Drop calendar joins when Graph calendar disappeared; keep shared Projects.
+def _drop_missing_calendar_ids(seen: set[str], uid_map: UidMap) -> int:
+    """Drop indexed calendar ids that left the snapshot. Never delete Projects.
 
     :param seen: Snapshot calendar ids. Example: ``{"cal-work"}``
-    :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
-    :return: Removed join count. Example: ``1``
+    :return: Removed id count. Example: ``1``
     """
     removed = 0
-    for graph_id, project_id in list(uid_map.calendars.items()):
+    for graph_id in list(uid_map.calendars):
         if graph_id in seen:
             continue
         del uid_map.calendars[graph_id]
         removed += 1
-        logger.info("taskd.apply | processing | calendar_join_removed graph=%s", graph_id)
-        if project_id not in uid_map.lists.values():
-            entourage.delete_project(project_id)
-            logger.info("taskd.apply | processing | project_delete graph=%s kind=calendar", graph_id)
+        logger.info("taskd.apply | processing | calendar_index_removed graph=%s", graph_id)
     return removed
 
 
@@ -220,7 +171,7 @@ def _upsert_event(
     :param uid_map: Joins. Example: ``UidMap()``
     :return: (created, updated). Example: ``(1, 0)``
     """
-    properties = _event_properties(row, uid_map, entourage)
+    properties = _event_properties(row, entourage)
     local_id = uid_map.events.get(row.id)
     if local_id is None:
         created = entourage.create_event(properties)
@@ -238,14 +189,14 @@ def _upsert_event(
     return 0, 1
 
 
-def _event_properties(row: SnapshotEvent, uid_map: UidMap, entourage: EntouragePort) -> dict[str, Any]:
+def _event_properties(row: SnapshotEvent, entourage: EntouragePort) -> dict[str, Any]:
     """Build Entourage event fields from a snapshot row.
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", subject="Standup", ...)``
-    :param uid_map: Joins. Example: ``UidMap()``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :return: Properties. Example: ``{"subject": "Standup", "content_plain": "o365pop-uid: evt-standup"}``
     """
-    project_id = uid_map.calendars.get(row.calendar_id)
+    project_id = _project_id_from_category(row, entourage)
     props: dict[str, Any] = {
         "subject": row.subject,
         "start": parse_iso(row.start.date_time),
@@ -260,6 +211,26 @@ def _event_properties(row: SnapshotEvent, uid_map: UidMap, entourage: EntourageP
     }
     props.update(_event_body_fields(row))
     return props
+
+
+def _project_id_from_category(row: SnapshotEvent, entourage: EntouragePort) -> str | None:
+    """Join or create a Project from the event's first category name.
+
+    :param row: Snapshot event. Example: ``SnapshotEvent(..., categories=("Work",))``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :return: Project id or None. Example: ``"12"``
+    """
+    if not row.categories:
+        logger.info("taskd.apply | branch | uncategorized=true uid=%s", row.id)
+        return None
+    name = row.categories[0]
+    existing = _project_by_name(entourage.list_projects(), name)
+    if existing is not None:
+        logger.info("taskd.apply | branch | project_from_category=true name=%s", name)
+        return str(existing["id"])
+    project = entourage.create_project(name)
+    logger.info("taskd.apply | branch | project_from_category=true name=%s created=true", name)
+    return str(project["id"])
 
 
 def _apply_category_names(names: tuple[str, ...], entourage: EntouragePort) -> list[str]:

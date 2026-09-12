@@ -40,7 +40,7 @@ Recommended answers are baked into the plan. Change any before implementation st
 
 ### Q10: To Do list ↔ Entourage?
 **Question**: Where does a Microsoft To Do list show up?
-**Recommended**: Entourage **Project**. Create if missing; rename when the list name changes; delete the Project if the list is deleted in O365. Join by Graph list id.
+**Recommended**: Entourage **Project**. Create if missing; rename when the list name changes. Join by Graph list id. Delete the Project when the To Do list is gone (TASK1.4). Outlook calendars do **not** join Projects (Q15).
 
 ### Q11: Categories and colors?
 **Question**: Which Graph categories, and how do colors map?
@@ -56,4 +56,28 @@ Recommended answers are baked into the plan. Change any before implementation st
 
 ### Q14: LibreELEC down?
 **Question**: What does Mac `taskd` do if the proxy box is off, the share is gone, or the pull times out?
-**Recommended**: Stay up. Catch the failure, log one WARNING beat (`reachability=down`), leave Entourage unchanged, keep local receipts queued, sleep until the next 60s tick. Do not raise, do not exit, do not dump a traceback to the operator. Same for a later write of receipts when the box comes back — retry until it works.
+**Recommended**: Stay up. Catch the failure, log one WARNING beat (`reachability=down`), leave Entourage unchanged, keep local receipts queued, sleep until the next 60s tick. Do not raise, do not exit, do not dump a traceback to the operator. Same for a later write of receipts when the box comes back — retry until it works. Calendar snapshot pull uses the same rule (CAL1.8).
+
+### Q15: How does an Outlook event get an Entourage Project?
+**Question**: To Do lists already map to Projects (Q10). Outlook has no Project — only Category. How does an event join an Entourage Project?
+**Recommended**: **C — category name.** An event with a category joins the Entourage Project of that **first** category name (create the Project if missing). An uncategorized event is Calendar-only (empty project list). Outlook calendar `displayName` does **not** create, rename, or join a Project. The category catalog stays TASK-owned (CAL1.5). To Do lists still map to Projects (Q10 / TASK1.2–1.4).
+
+### Q16: Appointments vs meetings?
+**Question**: Sync meetings with attendees two-way (invites / accept / decline)?
+**Recommended**: Treat Graph meetings as Entourage `event`. Copy attendees as text in `content`. Do **not** set Entourage `to recipients`. Do **not** PATCH Graph `attendees` or send meeting invites from Entourage.
+
+### Q17: Recurring events?
+**Question**: Sync the series master, or each occurrence?
+**Recommended**: Expand Graph `calendarView` for **−30 / +180 days** (env: `CAL_WINDOW_PAST_DAYS`, `CAL_WINDOW_FUTURE_DAYS`). One Entourage event per occurrence, joined by occurrence id. Occurrence edit PATCHes that instance. Series-master edit in Entourage is out of v1.
+
+### Q18: Which Mac process, which calendars?
+**Question**: New daemon, or same `taskd`? Default calendar only, or all calendars?
+**Recommended**: Same `taskd`, second path `CAL_SNAPSHOT_PATH`. All **mailbox** calendars (`GET /me/calendars`). No shared, group, or room calendars in v1.
+
+### Q19: Create events on Graph from Entourage?
+**Question**: An Entourage event with no `o365pop-uid:` — POST to Graph, or leave local (like TASK1.7)?
+**Recommended**: **Yes, POST.** Target is the **default mailbox calendar** (`isDefault`). Project is category-derived and is not a Graph calendar id. Next snapshot stamps `o365pop-uid:` into content.
+
+### Q20: Which extra event fields?
+**Question**: Reminders, show-as/busy, sensitivity, attachments — in or out of v1?
+**Recommended**: **All included**, two-way. Attachment bytes live as files under `calendar/attachments/{eventId}/`, not as base64 in `snapshot.json`. Exact Entourage AppleScript tokens are a BPE-01 probe on the 10.14 dictionary.

@@ -6,7 +6,7 @@
 Runs o365pop as a Docker stack on LibreELEC. Has WireGuard inbound. Signs in to Microsoft once via device code over SSH. Reads `logs/app.log` when mail does not appear.
 
 **Vintage Client** — Entourage 2008 (and other POP/SMTP clients)
-Lives on a Mac that reaches LibreELEC through WireGuard or LAN. Speaks POP3 on 110 and SMTP on 587 with no SSL. Uses a local mailbox password, not the Microsoft password. Tasks come from Mac `taskd` (AppleScript), not from POP.
+Lives on a Mac that reaches LibreELEC through WireGuard or LAN. Speaks POP3 on 110 and SMTP on 587 with no SSL. Uses a local mailbox password, not the Microsoft password. Tasks and Calendar come from Mac `taskd` (AppleScript), not from POP.
 
 ---
 
@@ -14,10 +14,10 @@ Lives on a Mac that reaches LibreELEC through WireGuard or LAN. Speaks POP3 on 1
 
 **o365pop**: local Graph-to-POP/SMTP bridge.
 
-- **Celery worker + beat**: Graph pull, inbound toss, outbound scan, task snapshot (taciturn2 sync shape)
+- **Celery worker + beat**: Graph pull, inbound toss, outbound scan, task + calendar snapshots (taciturn2 sync shape)
 - **popd / smtpd**: wire protocols only; filesystem message base
-- **Mac taskd**: snapshot pull + Entourage AppleScript (Tasks / Projects / Categories)
-- **Graph REST**: mail MIME + Teams chats + MIME send + To Do + masterCategories
+- **Mac taskd**: snapshot pull + Entourage AppleScript (Tasks / Events / Projects / Categories)
+- **Graph REST**: mail MIME + Teams chats + MIME send + To Do + calendars + masterCategories
 
 **Domain model**:
 
@@ -26,7 +26,8 @@ Lives on a Mac that reaches LibreELEC through WireGuard or LAN. Speaks POP3 on 1
 - **SyncSession** — one Celery pull/toss run
 - **Maildir** — what POP serves
 - **Spool** — what SMTP wrote and the scanner sends
-- **Task snapshot** — what `taskd` applies to Entourage
+- **Task snapshot** — what `taskd` applies to Entourage Tasks
+- **Calendar snapshot** — what `taskd` applies to Entourage Calendar
 
 ---
 
@@ -81,6 +82,12 @@ Entourage sends SMTP to that address (and usually sets `In-Reply-To` to our `Mes
 
 LibreELEC publishes `/storage/o365pop/tasks/snapshot.json`. Every minute `taskd` on the Entourage Mac pulls it and AppleScripts Tasks, Projects (one per To Do list), and categories (colors mapped from Outlook). Completing or editing a uid-tagged task writes a receipt; Celery PATCHes Graph. Untagged local tasks stay local. If LibreELEC is down, `taskd` stays running, logs a WARNING, and retries the next minute — it does not crash.
 
+### Act 6: Vintage client works Calendar in Entourage
+
+**Context**: Graph has Outlook calendars and events. POP cannot create Entourage events.
+
+LibreELEC publishes `/storage/o365pop/calendar/snapshot.json` (window −30 / +180 days) and attachment files. The same `taskd` AppleScripts Entourage `event` objects: Project from the event’s first category name (create if missing; uncategorized stays Calendar-only — Q15), categories from the TASK catalog, attendees as text in content (not meeting invites). Editing a uid-tagged event PATCHes Graph. A new Entourage event with no uid POSTs to the default mailbox calendar, then the next snapshot stamps `o365pop-uid:`. Reminders, show-as, sensitivity, and file attachments sync both ways. Recurring series expand to one Entourage event per occurrence. If LibreELEC is down, the same quiet retry as Act 5.
+
 ---
 
 ## Acts and feature files
@@ -95,3 +102,4 @@ LibreELEC publishes `/storage/o365pop/tasks/snapshot.json`. Every minute `taskd`
 | Teams reply map | `docs/features/act-1-bridge/teams.feature` | `docs/plans/TEAM_IMPLEMENTATION_PLAN.md` |
 | LibreELEC deploy | `docs/features/act-1-bridge/deploy.feature` | `docs/plans/DEP_IMPLEMENTATION_PLAN.md` |
 | Entourage Tasks | `docs/features/act-1-bridge/tasks.feature` | `docs/plans/TASK_IMPLEMENTATION_PLAN.md` |
+| Entourage Calendar | `docs/features/act-1-bridge/calendar.feature` | BPE-08 `docs/plans/CAL_CHANGE_RECONCILIATION.md` (BPE-01 later) |

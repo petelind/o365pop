@@ -9,7 +9,7 @@ Feature: CAL Entourage Calendar sync with Outlook
     And Mac taskd is running on the Entourage host
 
   Scenario: CAL1.1 Snapshot event becomes an Entourage event
-    Given Graph calendar "Work" id "cal-work" contains event id "evt-standup" subject "Standup" start "2026-09-12T13:00:00Z" end "2026-09-12T13:30:00Z" location "Room A" categories "Work" showAs "busy" sensitivity "normal" reminderMinutesBeforeStart 15
+    Given Graph calendar "Calendar" id "cal-work" contains event id "evt-standup" subject "Standup" start "2026-09-12T13:00:00Z" end "2026-09-12T13:30:00Z" location "Room A" categories "Work" showAs "busy" sensitivity "normal" reminderMinutesBeforeStart 15
     And that event has attendee "Ada Lovelace" email "ada@contoso.com" type "required"
     When Mac taskd pulls the calendar snapshot
     Then Entourage has an event subject "Standup" starting Saturday 12 Sep 2026 09:00 ending 09:30
@@ -17,34 +17,35 @@ Feature: CAL Entourage Calendar sync with Outlook
     And that event content contains attendee text "Ada Lovelace" and "ada@contoso.com"
     And that event is not an Entourage meeting invite (to recipients is empty)
     And that event project list contains Project "Work"
+    And Entourage has no Project named "Calendar"
     And that event has category "Work"
     And that event reminder is 15 minutes before start
     And that event show-as is busy
     And that event sensitivity is normal
     And logs on the Mac contain beat "exit" with created=1
 
-  Scenario: CAL1.2 Missing Outlook calendar creates an Entourage Project
-    Given Graph has calendar "Garden" id "cal-garden" and Entourage has no Project named "Garden"
-    And Graph has no To Do list named "Garden"
+  Scenario: CAL1.2 Event category creates an Entourage Project
+    Given Graph calendar "Calendar" id "cal-work" contains event id "evt-standup" with category "Garden"
+    And Entourage has no Project named "Garden"
     When Mac taskd pulls the calendar snapshot
     Then Entourage has a Project named "Garden"
-    And the Project is joined to Graph calendar id "cal-garden"
+    And that event project list contains Project "Garden"
+    And Entourage has no Project named "Calendar"
 
-  Scenario: CAL1.3 Renamed Outlook calendar renames the Project
-    Given Entourage Project "Garden" is joined to Graph calendar id "cal-garden"
-    And Graph calendar "cal-garden" displayName is now "Yard"
-    And no To Do list displayName disagrees
+  Scenario: CAL1.3 Uncategorized event is Calendar-only
+    Given Graph calendar "Calendar" id "cal-work" contains event id "evt-dentist" subject "Dentist" with no categories
     When Mac taskd pulls the calendar snapshot
-    Then Entourage Project joined to "cal-garden" is named "Yard"
-    And Entourage has no Project named "Garden" for that Graph calendar id
+    Then Entourage has an event subject "Dentist"
+    And that event project list is empty
+    And Entourage has no Project named "Calendar"
 
-  Scenario: CAL1.4 Deleted calendar keeps the Project when a To Do list still joins it
-    Given Entourage Project "Yard" is joined to calendar id "cal-garden" and To Do list id "list-garden"
-    And Graph no longer has calendar "cal-garden"
-    And Graph still has To Do list "list-garden" displayName "Yard"
-    When Mac taskd pulls the snapshots
-    Then Entourage still has Project "Yard" joined to "list-garden"
-    And Entourage has no calendar join "cal-garden"
+  Scenario: CAL1.4 Outlook calendar displayName does not create or rename a Project
+    Given Entourage has Project "Work" from event category "Work"
+    And Graph calendar id "cal-work" displayName is now "Mailbox"
+    When Mac taskd pulls the calendar snapshot
+    Then Entourage still has Project "Work"
+    And Entourage has no Project named "Mailbox"
+    And Entourage has no Project named "Calendar"
 
   Scenario: CAL1.5 Event categories apply without mutating the catalog
     Given Graph event "evt-standup" categories are "Urgent"
@@ -64,7 +65,7 @@ Feature: CAL Entourage Calendar sync with Outlook
   Scenario: CAL1.7 Untagged local Entourage event POSTs to Graph
     Given Entourage has an event subject "Dentist" start "2026-09-15T18:00:00Z" end "2026-09-15T19:00:00Z" with no o365pop-uid in content
     And that event project list contains Project "Work"
-    And Graph calendar "Work" id is "cal-work"
+    And Graph default calendar "Calendar" id is "cal-work"
     When Mac taskd writes a create receipt and LibreELEC applies it
     Then Graph POSTs /me/calendars/cal-work/events with subject "Dentist"
     And the next calendar snapshot includes the new Graph event id

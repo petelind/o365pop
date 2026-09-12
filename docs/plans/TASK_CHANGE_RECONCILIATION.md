@@ -55,7 +55,7 @@ Entourage 2008 Tasks / Projects / Categories
 - **LibreELEC** remains the only Graph client. Tokens stay there. New scopes: `Tasks.ReadWrite`, `MailboxSettings.Read` (plus existing mail/chat). Operator re-runs `make login`.
 - **Mac `taskd`** never calls Graph, never writes Entourage’s `Database` file, never speaks POP/SMTP. Injection is Apple Events only (`osascript` from Python).
 - **Interchange** is an atomic JSON snapshot + receipt files under `/storage/o365pop/tasks/` (not POP, not `.ics` in Inbox, not an HTTP app).
-- **Task list** (`GET /me/todo/lists`) ↔ Entourage **Project**, joined by Graph list id stored in the Project (notes or equivalent). Create / rename (name only) / delete as the operator specified.
+- **Task list** (`GET /me/todo/lists`) ↔ Entourage **Project**, joined by Graph list id stored in the Project (notes or equivalent). Create / rename (name only). **Delete the Project when the To Do list is gone** (TASK1.4). Outlook calendars do not join Projects (CAL Q15).
 - **Category catalog** (`GET /me/outlook/masterCategories`) ↔ Entourage **category**, joined by Graph category id. Create if missing; rename with `displayName`; set color from Graph `color` (preset) via the Entourage palette map. Delete only categories **this sync created**. Do not delete Entourage’s built-in categories (Family, Friends, …) if they have no Graph id.
 - **Task fields (two-way)**: title, due, completed, list→project, category names. Join key: `o365pop-uid:` in Entourage task `content` (Graph todoTask id). Last write wins using Entourage `modification date` vs Graph `lastModifiedDateTime`.
 - **Local Entourage tasks** without `o365pop-uid:` stay local (no Graph create).

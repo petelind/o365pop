@@ -2,7 +2,8 @@
   "value": [
     {
       "id": "cal-work",
-      "displayName": "Work",
+      "displayName": "Calendar",
+      "isDefault": true,
       "isDefaultCalendar": true,
       "canEdit": true
     }

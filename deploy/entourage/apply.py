@@ -123,7 +123,7 @@ def _rename_if_needed(row: SnapshotList, entourage: EntouragePort, uid_map: UidM
 
 
 def _delete_missing_projects(seen: set[str], entourage: EntouragePort, uid_map: UidMap) -> int:
-    """Delete Projects whose Graph list disappeared unless a calendar join remains (Q15 B).
+    """Delete Projects whose Graph list disappeared (TASK1.4 / Q15 C).
 
     :param seen: Snapshot list ids. Example: ``{"list-work"}``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
@@ -131,17 +131,10 @@ def _delete_missing_projects(seen: set[str], entourage: EntouragePort, uid_map: 
     :return: Deleted count. Example: ``1``
     """
     deleted = 0
-    calendar_projects = set(uid_map.calendars.values())
     for graph_id, project_id in list(uid_map.lists.items()):
         if graph_id in seen:
             continue
         del uid_map.lists[graph_id]
-        if project_id in calendar_projects:
-            logger.info(
-                "taskd.apply | processing | list_join_removed graph=%s calendar_join_keeps_project=true",
-                graph_id,
-            )
-            continue
         entourage.delete_project(project_id)
         deleted += 1
         logger.info("taskd.apply | processing | project_delete graph=%s", graph_id)
@@ -271,17 +264,26 @@ def format_uid(graph_id: str) -> str:
 
 
 def parse_uid(content: str) -> str | None:
-    """Extract Graph id from Entourage content.
+    """Extract Graph id from Entourage content (plain or HTML).
 
-    :param content: Task notes. Example: ``"o365pop-uid: task-q3\\n"``
+    :param content: Task or event notes. Example: ``"o365pop-uid: task-q3\\n"``
     :return: Graph id or None. Example: ``"task-q3"``
     """
-    for line in (content or "").splitlines():
+    text = content or ""
+    for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith(UID_PREFIX):
             uid = stripped.split(":", 1)[1].strip()
             return uid or None
-    return None
+    marker = UID_PREFIX
+    idx = text.find(marker)
+    if idx < 0:
+        return None
+    rest = text[idx + len(marker) :].lstrip()
+    if not rest:
+        return None
+    token = rest.split("<", 1)[0].split(None, 1)[0].strip()
+    return token or None
 
 
 def parse_iso(value: str | None) -> datetime | None:

@@ -25,11 +25,13 @@ def test_publish_calendar_snapshot_atomic_standup(tmp_path: Path) -> None:
     assert not dest.with_name("snapshot.json.tmp").exists()
     payload = json.loads(dest.read_text(encoding="utf-8"))
     assert payload["calendars"][0]["id"] == "cal-work"
-    assert payload["calendars"][0]["displayName"] == "Work"
+    assert payload["calendars"][0]["displayName"] == "Calendar"
     assert payload["events"][0]["id"] == "evt-standup"
     assert payload["events"][0]["calendarId"] == "cal-work"
     assert payload["events"][0]["subject"] == "Standup"
     assert payload["events"][0]["location"] == "Room A"
+    assert payload["events"][0]["bodyContentType"] == "html"
+    assert "<strong>deck</strong>" in payload["events"][0]["body"]
     assert payload["events"][0]["reminderMinutesBeforeStart"] == 15
     assert payload["events"][0]["attendees"][0]["email"] == "ada@contoso.com"
     assert payload["events"][0]["attachments"][0]["name"] == "agenda.pdf"

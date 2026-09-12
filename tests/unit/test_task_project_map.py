@@ -61,8 +61,8 @@ def test_renamed_list_renames_joined_project() -> None:
 
 
 @pytest.mark.unit
-def test_deleted_list_keeps_project_when_calendar_join_remains() -> None:
-    """TASK1.4 Q15 B: missing list drops join but calendar join keeps Project.
+def test_deleted_list_deletes_project_even_if_calendar_id_lingers() -> None:
+    """TASK1.4: leftover uid_map.calendars entry must not keep the Project.
 
     :return: None
     """
@@ -72,10 +72,7 @@ def test_deleted_list_keeps_project_when_calendar_join_remains() -> None:
     project_id = uid_map.lists["list-garden"]
     uid_map.calendars["cal-garden"] = project_id
     apply_snapshot(_snapshot(), entourage, uid_map)
-    projects = entourage.list_projects()
-    assert len(projects) == 1
-    assert projects[0]["name"] == "Yard"
-    assert uid_map.calendars["cal-garden"] == project_id
+    assert entourage.list_projects() == []
     assert "list-garden" not in uid_map.lists
 
 

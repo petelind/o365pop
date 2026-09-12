@@ -18,12 +18,12 @@ BPE-01 adjustments: no Django/HTMX. Mac `osascript` is **not** in CI — extend 
 | File | Lines | Note |
 |------|-------|------|
 | `docs/features/act-1-bridge/calendar.feature` | 1–90 | CAL1.1–1.9 |
-| `docs/architecture/SAO.md` | §2 Calendar ↔ Entourage | Snapshot hop, Q15 B, attachments |
+| `docs/architecture/SAO.md` | §2 Calendar ↔ Entourage | Snapshot hop, Q15 C, attachments |
 | `o365pop/graph/port.py` | 8–90 | **Extend GraphPort** — calendar methods |
 | `o365pop/graph/file_adapter.py` | 83–136 | Same fixture shape; add calendars/events JSON |
 | `o365pop/sync/tasks.py` | 57–104 | **Add** `sync_calendar`; do not fold into `sync_tasks` |
 | `o365pop/celery_app.py` | 41–54 | Add beat `sync-calendar` (`CAL_SNAPSHOT_SECONDS`, default 60) |
-| `deploy/entourage/apply.py` | 125–141 | `_delete_missing_projects` must honor calendar joins |
+| `deploy/entourage/apply.py` | 125–141 | `_delete_missing_projects` is list-join only (Q15 C) |
 | `deploy/entourage/taskd.py` | 18–58 | Second snapshot path, same reachability |
 
 MCP / SAO §17 / §18: **N/A** — no rows.
@@ -43,7 +43,8 @@ MCP / SAO §17 / §18: **N/A** — no rows.
 - Do NOT set Entourage `to recipients` or PATCH Graph `attendees` (Q16)
 - Do NOT sync shared / group / room calendars (Q18)
 - Do NOT embed attachment bytes as base64 in `snapshot.json` (Q20)
-- Do NOT delete a Project that still has a To Do **or** calendar join (Q15 B)
+- Do NOT create, rename, or join a Project from an Outlook calendar `displayName` (Q15 C)
+- Do NOT mint Project `"Calendar"` for the default mailbox calendar
 - Do NOT raise or `sys.exit` when LibreELEC is unreachable (CAL1.8)
 - Do NOT mock GraphPort or EntouragePort in integration tests — FileGraphAdapter + FakeEntourage
 - Do NOT run `osascript` in `make test`
@@ -158,8 +159,8 @@ Never log tokens, mailbox passwords, event bodies, or attachment bytes.
 | Test | Level | Proves |
 |---|---|---|
 | `tests/unit/test_calendar_snapshot_parse.py` | unit | Valid event dict; reject missing `id` |
-| `tests/unit/test_calendar_project_map.py` | unit | CAL1.2–1.4 shared Projects |
-| `tests/unit/test_task_project_map.py` | unit | TASK1.4 extended: calendar join keeps Project |
+| `tests/unit/test_calendar_project_map.py` | unit | CAL1.2–1.4 category → Project; calendar name is not a Project |
+| `tests/unit/test_task_project_map.py` | unit | TASK1.4: delete joined Project when the list is gone |
 | `tests/unit/test_calendar_category_apply.py` | unit | CAL1.5 apply only |
 | `tests/unit/test_taskd_reachability_down.py` | unit | CAL1.8 missing CAL path |
 | `tests/unit/test_calendar_snapshot_log_story_happy.py` | unit caplog | publish entry/exit |
@@ -195,10 +196,11 @@ Never log tokens, mailbox passwords, event bodies, or attachment bytes.
 - [ ] `tosser/calendar_snapshot.py`, `sync_calendar`, beat, Settings, scope
 - **Commit**: `feat(sync): publish Outlook calendar snapshot for Mac taskd`
 
-### Slice 3 — CAL1.2–1.4 Projects (Q15 B)
+### Slice 3 — CAL1.2–1.4 Projects (Q15 C)
 
-- [ ] `uid_map.calendars`; amend `_delete_missing_projects`
-- **Commit**: `feat(taskd): share Projects by displayName with Outlook calendars`
+- [ ] Event first category → Project (create if missing); uncategorized → no Project
+- [ ] Do not create/rename Projects from calendar displayName
+- **Commit**: `feat(taskd): join calendar events to Projects by category name`
 
 ### Slice 4 — CAL1.5 + CAL1.1 inbound events
 
@@ -236,7 +238,7 @@ Never log tokens, mailbox passwords, event bodies, or attachment bytes.
 
 ## Lessons Learned
 
-The TASK hop already proved snapshot + FakeEntourage. The new hazard is **one Project namespace written by two snapshots**: `_delete_missing_projects` will delete calendar-only Projects unless `uid_map.calendars` is checked on every TASK tick. Q19 create needs an ack file because the Mac cannot invent a Graph id. Q20 attachments must stay on disk or the snapshot becomes unreviewable and logs will leak bytes.
+The TASK hop already proved snapshot + FakeEntourage. Q15 C: Projects come from To Do lists and from event category names, not from Outlook calendar displayName. `_delete_missing_projects` is list-join only. Q19 create POSTs to the default mailbox calendar. Q20 attachments must stay on disk or the snapshot becomes unreviewable and logs will leak bytes.
 
 ---
 

@@ -70,11 +70,25 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | TASK1.1 | snapshot task → Entourage Task + uid + Project + category | `tests/integration/test_task_snapshot_create.py` |
 | TASK1.2 | missing To Do list → create Project | `tests/unit/test_task_project_map.py` |
 | TASK1.3 | renamed list → rename Project | `tests/unit/test_task_project_map.py` |
-| TASK1.4 | deleted list → delete synced Project | `tests/unit/test_task_project_map.py` |
+| TASK1.4 | deleted list → delete joined Project | `tests/unit/test_task_project_map.py` |
 | TASK1.5 | masterCategory color → Entourage category | `tests/unit/test_task_category_color.py` |
 | TASK1.6 | Entourage completed → Graph PATCH | `tests/integration/test_task_receipt_patch.py` |
 | TASK1.7 | untagged local task ignored | `tests/unit/test_task_receipt_ignore_local.py` |
 | TASK1.8 | LibreELEC down; no raise; retry | `tests/unit/test_taskd_reachability_down.py` |
+
+## CAL (`calendar.feature`) — spec only until BPE-01
+
+| Scenario | Phrase | Pytest / helper |
+|---|---|---|
+| CAL1.1 | snapshot event → Entourage event + uid + Project from category + no Project "Calendar" | `tests/integration/test_calendar_snapshot_create.py` |
+| CAL1.2 | event category → create Project if missing | `tests/unit/test_calendar_project_map.py` |
+| CAL1.3 | uncategorized event → empty project list; no Project from calendar name | `tests/unit/test_calendar_project_map.py` |
+| CAL1.4 | calendar displayName does not create or rename a Project | `tests/unit/test_calendar_project_map.py` |
+| CAL1.5 | event categories apply; catalog unchanged | `tests/unit/test_calendar_category_apply.py` |
+| CAL1.6 | Entourage edit → Graph PATCH (no attendee patch) | `tests/integration/test_calendar_receipt_patch.py` |
+| CAL1.7 | untagged local event POSTs to Graph | `tests/integration/test_calendar_receipt_create.py` |
+| CAL1.8 | LibreELEC down; no raise; retry | `tests/unit/test_taskd_reachability_down.py` |
+| CAL1.9 | attachment files both ways | `tests/integration/test_calendar_attachment_sync.py` |
 
 ## Live journey (`docs/features/user_journey.md`) — `@live_graph` only
 
@@ -85,6 +99,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | Act 3 | SMTP AUTH LOGIN → scanner sendMail → `spool/sent` | `tests/live/test_user_journey.py::test_act3_smtp_sendmail_to_self` |
 | Act 4 | To `teams.*` → chat post (skip if no chats) | `tests/live/test_user_journey.py::test_act4_teams_reply_posts_chat` |
 | Act 5 | To Do snapshot → Entourage Task (operator Mac) | live `taskd` on Entourage host — not `make test` |
+| Act 6 | Calendar snapshot → Entourage event (operator Mac) | live `taskd` on Entourage host — not `make test` |
 
 `make test-e2e` / `make test-live-graph`. Not part of `make test`.
 

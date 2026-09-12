@@ -38,6 +38,7 @@ MCP / SAO §17 / §18: **N/A** — no rows.
 - Do NOT fold task publish into `sync_mailbox`
 - Do NOT add SQLite tables for task joins (Mac `uid_map.json` only)
 - Do NOT delete Entourage categories this sync did not create
+- Do NOT treat Outlook calendars as Project joins (CAL Q15 C)
 - Do NOT raise or `sys.exit` when LibreELEC is unreachable (TASK1.8)
 - Do NOT mock GraphPort or EntouragePort in integration tests — FileGraphAdapter + FakeEntourage
 - Do NOT run `osascript` in `make test`
@@ -177,7 +178,7 @@ Never log tokens, mailbox passwords, or raw snapshot bodies (counts and ids only
 | `tests/unit/test_task_snapshot_parse.py` | unit | Valid snapshot dict; reject missing `id` |
 | `tests/unit/test_task_category_color.py` | unit | TASK1.5 map; unknown preset → gray + fallback |
 | `tests/unit/test_taskd_reachability_down.py` | unit | TASK1.8: no raise; WARNING `reachability=down`; Entourage untouched |
-| `tests/unit/test_task_project_map.py` | unit | TASK1.2 create, 1.3 rename, 1.4 delete joined Project only |
+| `tests/unit/test_task_project_map.py` | unit | TASK1.2 create, 1.3 rename, 1.4 delete joined Project when the list is gone |
 | `tests/unit/test_task_receipt_ignore_local.py` | unit | TASK1.7: no receipt for untagged task |
 | `tests/unit/test_task_snapshot_log_story_happy.py` | unit caplog | publish entry/exit |
 | `tests/unit/test_taskd_log_story_reject.py` | unit caplog | pull branch reachability=down |
