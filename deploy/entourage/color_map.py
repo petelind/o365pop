@@ -35,6 +35,20 @@ GRAPH_TO_ENTOURAGE: dict[str, str] = {
     "preset24": "cranberry",
 }
 FALLBACK_COLOR = "gray"
+# 16-bit RGB sampled from Entourage 2008 built-in categories (Family=red, …).
+ENTOURAGE_RGB: dict[str, tuple[int, int, int]] = {
+    "red": (52428, 26646, 44325),
+    "orange": (56026, 38689, 63285),
+    "green": (61166, 34589, 33052),
+    "gray": (39970, 39970, 39970),
+    "purple": (38036, 49193, 35102),
+    "blue": (47802, 50474, 65335),
+    "steel": (48059, 32796, 25109),
+    "yellow": (65535, 48425, 26390),
+    "maroon": (50017, 11847, 30666),
+    "olive": (54360, 61876, 27927),
+    "cranberry": (50017, 11847, 30666),
+}
 
 
 def graph_color_to_entourage(color: str) -> tuple[str, bool]:
@@ -54,3 +68,15 @@ def graph_color_to_entourage(color: str) -> tuple[str, bool]:
         FALLBACK_COLOR,
     )
     return FALLBACK_COLOR, True
+
+
+def entourage_color_rgb(name: str) -> tuple[int, int, int]:
+    """Return 16-bit RGB for an Entourage color name.
+
+    :param name: Color name. Example: ``"orange"``
+    :return: RGB triple. Example: ``(56026, 38689, 63285)``
+    """
+    key = (name or "").strip().lower()
+    rgb = ENTOURAGE_RGB.get(key) or ENTOURAGE_RGB[FALLBACK_COLOR]
+    logger.info("taskd.color_map | exit | rgb_name=%s r=%s g=%s b=%s", key or "empty", rgb[0], rgb[1], rgb[2])
+    return rgb

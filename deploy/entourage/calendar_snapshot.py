@@ -89,6 +89,8 @@ class SnapshotEvent:
     :param is_all_day: All-day flag. Example: ``False``
     :param location: Location string. Example: ``"Room A"``
     :param body_preview: Plain body preview. Example: ``"Daily"``
+    :param body: Full Graph body content. Example: ``"<p>Daily</p>"``
+    :param body_content_type: Graph body contentType. Example: ``"html"``
     :param categories: Category names. Example: ``("Work",)``
     :param attendees: Attendee rows. Example: ``()``
     :param show_as: Graph showAs. Example: ``"busy"``
@@ -106,6 +108,8 @@ class SnapshotEvent:
     is_all_day: bool
     location: str
     body_preview: str
+    body: str
+    body_content_type: str
     categories: tuple[str, ...]
     attendees: tuple[SnapshotAttendee, ...]
     show_as: str
@@ -224,6 +228,7 @@ def _parse_event(row: dict[str, Any]) -> SnapshotEvent:
     reminder = row.get("reminderMinutesBeforeStart")
     if reminder is None:
         reminder = row.get("reminder_minutes")
+    body, body_type = _parse_body(row)
     return SnapshotEvent(
         id=_require_id(row, "event"),
         calendar_id=str(row.get("calendarId") or row.get("calendar_id") or ""),
@@ -233,6 +238,8 @@ def _parse_event(row: dict[str, Any]) -> SnapshotEvent:
         is_all_day=bool(row.get("isAllDay") or row.get("is_all_day")),
         location=str(row.get("location") or ""),
         body_preview=str(row.get("bodyPreview") or row.get("body_preview") or ""),
+        body=body,
+        body_content_type=body_type,
         categories=names,
         attendees=attendees,
         show_as=str(row.get("showAs") or row.get("show_as") or "busy"),
@@ -241,6 +248,26 @@ def _parse_event(row: dict[str, Any]) -> SnapshotEvent:
         last_modified=_optional_str(row.get("lastModifiedDateTime") or row.get("last_modified")),
         attachments=attachments,
     )
+
+
+def _parse_body(row: dict[str, Any]) -> tuple[str, str]:
+    """Extract Graph body content and contentType from a snapshot row.
+
+    :param row: Raw event. Example: ``{"body": {"content": "<p>Hi</p>", "contentType": "html"}}``
+    :return: Body text and type. Example: ``("<p>Hi</p>", "html")``
+    """
+    body_obj = row.get("body")
+    if isinstance(body_obj, dict):
+        content = str(body_obj.get("content") or "")
+        content_type = str(body_obj.get("contentType") or body_obj.get("content_type") or "text")
+        if content:
+            return content, content_type
+    content = str(row.get("body") or "")
+    content_type = str(row.get("bodyContentType") or row.get("body_content_type") or "text")
+    if content:
+        return content, content_type
+    preview = str(row.get("bodyPreview") or row.get("body_preview") or "")
+    return preview, "text"
 
 
 def _parse_datetime(value: Any) -> SnapshotDateTime:

@@ -17,6 +17,10 @@
         "displayName": "Room A"
       },
       "bodyPreview": "Daily",
+      "body": {
+        "contentType": "html",
+        "content": "<p>Please review the <strong>deck</strong>.</p>"
+      },
       "categories": ["Work"],
       "attendees": [
         {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -48,4 +49,7 @@ def test_taskd_module_does_not_import_osascript() -> None:
 
     :return: None
     """
-    assert "deploy.entourage.osascript_entourage" not in sys.modules
+    code = (
+        "import sys\nimport deploy.entourage.taskd\nassert 'deploy.entourage.osascript_entourage' not in sys.modules\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from deploy.entourage.apply import apply_snapshot
-from deploy.entourage.color_map import graph_color_to_entourage
+from deploy.entourage.color_map import ENTOURAGE_RGB, entourage_color_rgb, graph_color_to_entourage
 from deploy.entourage.snapshot import parse_snapshot
 from deploy.entourage.uid_map import UidMap
 from tests.support.fake_entourage import FakeEntourage
@@ -31,6 +31,16 @@ def test_unknown_preset_falls_back_to_gray() -> None:
     color, fallback = graph_color_to_entourage("preset99")
     assert color == "gray"
     assert fallback is True
+
+
+@pytest.mark.unit
+def test_orange_name_has_sampled_rgb() -> None:
+    """Live Entourage sets color as RGB, not an AppleScript enum.
+
+    :return: None
+    """
+    assert entourage_color_rgb("orange") == ENTOURAGE_RGB["orange"]
+    assert entourage_color_rgb("unknown-hue") == ENTOURAGE_RGB["gray"]
 
 
 @pytest.mark.unit
