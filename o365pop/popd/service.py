@@ -69,6 +69,16 @@ def _build_factory(maildir: Path, db_path: Path) -> Factory:
 class _CleartextPOP3(POP3):
     """POP3 dialect without APOP (cleartext USER/PASS only)."""
 
+    def connectionMade(self):
+        """Greet without an APOP timestamp.
+
+        Entourage 2008 treats ``<challenge@host>`` as APOP and then fails.
+        """
+        self.magic = b""
+        self.successResponse(b"o365pop ready")
+        self.setTimeout(self.timeOut)
+        logger.info("popd.service._CleartextPOP3.connectionMade | config | apop=false")
+
     def do_APOP(self, user, digest):  # noqa: N802 — Twisted command hook
         logger.info("popd.service._CleartextPOP3.do_APOP | branch | rejected=true")
         self.failResponse(b"APOP disabled")

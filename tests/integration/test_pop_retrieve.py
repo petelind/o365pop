@@ -116,6 +116,8 @@ def test_pop_stat_uidl_retr_top_without_tls(sandbox: MailboxSandbox) -> None:
         assert not isinstance(client.sock, ssl.SSLSocket)
         welcome = client.getwelcome()
         assert welcome.startswith(b"+OK")
+        assert b"<" not in welcome
+        assert b"@" not in welcome
         assert client.user("denis").startswith(b"+OK")
         assert client.pass_("local-pass").startswith(b"+OK")
         count, _octets = client.stat()
