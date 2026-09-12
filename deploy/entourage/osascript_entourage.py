@@ -641,14 +641,16 @@ def _category_assign_event(properties: dict[str, Any]) -> str:
 
 
 def _project_assign_event(properties: dict[str, Any]) -> str:
-    """AppleScript to set event ``project list`` from ``project_id``.
+    """AppleScript to set or clear event ``project list`` from ``project_id``.
 
-    :param properties: Fields. Example: ``{"project_id": "12"}``
-    :return: Statement or empty. Example: ``"set project list of e to {project id 12}"``
+    :param properties: Fields. Example: ``{"project_id": None}``
+    :return: Statement or empty. Example: ``"set project list of e to {}"``
     """
+    if "project_id" not in properties:
+        return ""
     project_id = _event_project_id(properties)
     if project_id is None:
-        return ""
+        return "set project list of e to {}"
     return f"set project list of e to {{project id {project_id}}}"
 
 

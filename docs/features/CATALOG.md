@@ -82,7 +82,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 |---|---|---|
 | CAL1.1 | snapshot event → Entourage event + uid + Project from category + no Project "Calendar" | `tests/integration/test_calendar_snapshot_create.py` |
 | CAL1.2 | event category → create Project if missing | `tests/unit/test_calendar_project_map.py` |
-| CAL1.3 | uncategorized event → empty project list; no Project from calendar name | `tests/unit/test_calendar_project_map.py` |
+| CAL1.3 | uncategorized event → empty project list; leftover Project "Calendar" deleted | `tests/unit/test_calendar_project_map.py` |
 | CAL1.4 | calendar displayName does not create or rename a Project | `tests/unit/test_calendar_project_map.py` |
 | CAL1.5 | event categories apply; catalog unchanged | `tests/unit/test_calendar_category_apply.py` |
 | CAL1.6 | Entourage edit → Graph PATCH (no attendee patch) | `tests/integration/test_calendar_receipt_patch.py` |

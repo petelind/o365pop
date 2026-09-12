@@ -60,6 +60,126 @@ def test_event_category_creates_project(caplog: pytest.LogCaptureFixture) -> Non
 
 
 @pytest.mark.unit
+def test_uncategorized_event_clears_stale_calendar_project(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """CAL1.3 leftover Project Calendar is cleared off the event, then deleted.
+
+    :param caplog: pytest log capture
+    :return: None
+    """
+    caplog.set_level(logging.INFO)
+    entourage = FakeEntourage()
+    leftover = entourage.create_project("Calendar")
+    stale = entourage.create_event({"subject": "Focus time", "project_id": leftover["id"]})
+    uid_map = UidMap()
+    uid_map.events["evt-focus"] = stale["id"]
+    apply_calendar_snapshot(
+        _snapshot(
+            [{"id": "cal-work", "displayName": "Calendar", "isDefault": True}],
+            [_event("evt-focus", "Focus time", [])],
+        ),
+        entourage,
+        uid_map,
+    )
+    event = entourage.list_events()[0]
+    assert event.get("project_id") in (None, "")
+    assert "Calendar" not in {row["name"] for row in entourage.list_projects()}
+    assert_log_story(
+        caplog,
+        [
+            {
+                "where": "taskd.apply",
+                "beat": "branch",
+                "must_include": ["uncategorized=true", "uid=evt-focus"],
+            },
+            {
+                "where": "taskd.apply",
+                "beat": "branch",
+                "must_include": ["leftover_calendar_removed=true", "name=Calendar"],
+            },
+        ],
+    )
+
+
+@pytest.mark.unit
+def test_leftover_calendar_project_deleted_after_category_move(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Categorized events leave Project Calendar; the leftover Project is deleted.
+
+    :param caplog: pytest log capture
+    :return: None
+    """
+    caplog.set_level(logging.INFO)
+    entourage = FakeEntourage()
+    leftover = entourage.create_project("Calendar")
+    stale = entourage.create_event({"subject": "Standup", "project_id": leftover["id"]})
+    uid_map = UidMap()
+    uid_map.events["evt-standup"] = stale["id"]
+    apply_calendar_snapshot(
+        _snapshot(
+            [{"id": "cal-work", "displayName": "Calendar", "isDefault": True}],
+            [_event("evt-standup", "Standup", ["Garden"])],
+        ),
+        entourage,
+        uid_map,
+    )
+    names = [row["name"] for row in entourage.list_projects()]
+    assert names == ["Garden"]
+    event = entourage.list_events()[0]
+    assert event["project_id"] == entourage.list_projects()[0]["id"]
+    assert_log_story(
+        caplog,
+        where="taskd.apply",
+        beats={"branch": ["leftover_calendar_removed=true", "name=Calendar"]},
+    )
+
+
+@pytest.mark.unit
+def test_calendar_project_kept_when_todo_list_joins_it() -> None:
+    """A To Do list named Calendar must not be deleted by the calendar hop.
+
+    :return: None
+    """
+    entourage = FakeEntourage()
+    leftover = entourage.create_project("Calendar")
+    uid_map = UidMap()
+    uid_map.lists["list-calendar"] = leftover["id"]
+    apply_calendar_snapshot(
+        _snapshot(
+            [{"id": "cal-work", "displayName": "Calendar", "isDefault": True}],
+            [_event("evt-standup", "Standup", ["Work"])],
+        ),
+        entourage,
+        uid_map,
+    )
+    names = {row["name"] for row in entourage.list_projects()}
+    assert names == {"Calendar", "Work"}
+
+
+@pytest.mark.unit
+def test_calendar_project_kept_when_event_category_is_calendar() -> None:
+    """Category name Calendar is a real Project, not the leftover mailbox name.
+
+    :return: None
+    """
+    entourage = FakeEntourage()
+    apply_calendar_snapshot(
+        _snapshot(
+            [{"id": "cal-work", "displayName": "Calendar", "isDefault": True}],
+            [_event("evt-standup", "Standup", ["Calendar"])],
+        ),
+        entourage,
+        UidMap(),
+    )
+    names = [row["name"] for row in entourage.list_projects()]
+    assert names == ["Calendar"]
+    event = entourage.list_events()[0]
+    assert event["project_id"] == entourage.list_projects()[0]["id"]
+
+
+@pytest.mark.unit
 def test_uncategorized_event_has_no_project(caplog: pytest.LogCaptureFixture) -> None:
     """CAL1.3 uncategorized event stays Calendar-only.
 

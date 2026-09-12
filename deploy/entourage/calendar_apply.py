@@ -27,6 +27,7 @@ from deploy.entourage.uid_map import UidMap
 logger = logging.getLogger(__name__)
 
 ATTENDEES_PREFIX = "o365pop-attendees:"
+LEFTOVER_CALENDAR_PROJECT_NAME = "Calendar"
 
 
 ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024
@@ -43,7 +44,7 @@ def apply_calendar_snapshot(
     :param snapshot: Parsed calendar snapshot. Example: ``parse_calendar_snapshot({...})``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
-    :return: Counts. Example: ``{"created": 1, "updated": 0, "projects_created": 1}``
+    :return: Counts. Example: ``{"created": 1, "updated": 0, "leftover_calendar_removed": 1}``
     """
     logger.info(
         "taskd.apply | entry | calendars=%s events=%s kind=calendar",
@@ -52,11 +53,13 @@ def apply_calendar_snapshot(
     )
     counts = _sync_calendar_projects(snapshot.calendars, entourage, uid_map)
     counts.update(_sync_events(snapshot.events, entourage, uid_map, attachments_root))
+    counts["leftover_calendar_removed"] = _drop_leftover_calendar_project(snapshot.events, entourage, uid_map)
     logger.info(
-        "taskd.apply | exit | created=%s updated=%s failed=%s kind=calendar",
+        "taskd.apply | exit | created=%s updated=%s failed=%s leftover_removed=%s kind=calendar",
         counts["created"],
         counts["updated"],
         counts.get("failed", 0),
+        counts["leftover_calendar_removed"],
     )
     return counts
 
@@ -119,11 +122,12 @@ def _sync_events(
     :param uid_map: Joins. Example: ``UidMap()``
     :return: Counts. Example: ``{"created": 1, "updated": 0, "deleted": 0, "failed": 0}``
     """
+    catalog = _load_apply_catalog(entourage)
     created = updated = failed = 0
     seen: set[str] = set()
     for row in events:
         seen.add(row.id)
-        created_one, updated_one, failed_one = _try_upsert_event(row, entourage, uid_map, attachments_root)
+        created_one, updated_one, failed_one = _try_upsert_event(row, entourage, uid_map, attachments_root, catalog)
         created += created_one
         updated += updated_one
         failed += failed_one
@@ -136,6 +140,7 @@ def _try_upsert_event(
     entourage: EntouragePort,
     uid_map: UidMap,
     attachments_root: Path | None,
+    catalog: dict[str, list[dict[str, Any]]],
 ) -> tuple[int, int, int]:
     """Create or update one event; log and continue when Entourage rejects it.
 
@@ -143,10 +148,11 @@ def _try_upsert_event(
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
     :param attachments_root: Attachment dir. Example: ``Path("calendar/attachments")``
+    :param catalog: Cached Projects and categories. Example: ``{"projects": [], "categories": []}``
     :return: (created, updated, failed). Example: ``(0, 0, 1)``
     """
     try:
-        created, updated = _upsert_event(row, entourage, uid_map, attachments_root)
+        created, updated = _upsert_event(row, entourage, uid_map, attachments_root, catalog)
         return created, updated, 0
     except Exception as exc:
         logger.error(
@@ -163,15 +169,17 @@ def _upsert_event(
     entourage: EntouragePort,
     uid_map: UidMap,
     attachments_root: Path | None,
+    catalog: dict[str, list[dict[str, Any]]],
 ) -> tuple[int, int]:
     """Create or update one calendar event unless local is newer.
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", ...)``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
     :param uid_map: Joins. Example: ``UidMap()``
+    :param catalog: Cached Projects and categories. Example: ``{"projects": [], "categories": []}``
     :return: (created, updated). Example: ``(1, 0)``
     """
-    properties = _event_properties(row, entourage)
+    properties = _event_properties(row, entourage, catalog)
     local_id = uid_map.events.get(row.id)
     if local_id is None:
         created = entourage.create_event(properties)
@@ -189,21 +197,26 @@ def _upsert_event(
     return 0, 1
 
 
-def _event_properties(row: SnapshotEvent, entourage: EntouragePort) -> dict[str, Any]:
+def _event_properties(
+    row: SnapshotEvent,
+    entourage: EntouragePort,
+    catalog: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
     """Build Entourage event fields from a snapshot row.
 
     :param row: Snapshot event. Example: ``SnapshotEvent(id="evt-standup", subject="Standup", ...)``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param catalog: Cached Projects and categories. Example: ``{"projects": [], "categories": []}``
     :return: Properties. Example: ``{"subject": "Standup", "content_plain": "o365pop-uid: evt-standup"}``
     """
-    project_id = _project_id_from_category(row, entourage)
+    project_id = _project_id_from_category(row, entourage, catalog)
     props: dict[str, Any] = {
         "subject": row.subject,
         "start": parse_iso(row.start.date_time),
         "end": parse_iso(row.end.date_time),
         "location": row.location,
         "project_id": project_id,
-        "categories": _apply_category_names(row.categories, entourage),
+        "categories": _apply_category_names(row.categories, catalog),
         "reminder_minutes": row.reminder_minutes,
         "show_as": row.show_as,
         "sensitivity": row.sensitivity,
@@ -213,38 +226,119 @@ def _event_properties(row: SnapshotEvent, entourage: EntouragePort) -> dict[str,
     return props
 
 
-def _project_id_from_category(row: SnapshotEvent, entourage: EntouragePort) -> str | None:
+def _load_apply_catalog(entourage: EntouragePort) -> dict[str, list[dict[str, Any]]]:
+    """List Projects and categories once per calendar apply pass.
+
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :return: Cached catalogs. Example: ``{"projects": [{"id": "12", "name": "Work"}], "categories": []}``
+    """
+    catalog = {"projects": entourage.list_projects(), "categories": entourage.list_categories()}
+    logger.info(
+        "taskd.apply | processing | catalog_loaded=true projects=%s categories=%s",
+        len(catalog["projects"]),
+        len(catalog["categories"]),
+    )
+    return catalog
+
+
+def _project_id_from_category(
+    row: SnapshotEvent,
+    entourage: EntouragePort,
+    catalog: dict[str, list[dict[str, Any]]],
+) -> str | None:
     """Join or create a Project from the event's first category name.
 
     :param row: Snapshot event. Example: ``SnapshotEvent(..., categories=("Work",))``
     :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param catalog: Cached Projects. Example: ``{"projects": [], "categories": []}``
     :return: Project id or None. Example: ``"12"``
     """
     if not row.categories:
         logger.info("taskd.apply | branch | uncategorized=true uid=%s", row.id)
         return None
     name = row.categories[0]
-    existing = _project_by_name(entourage.list_projects(), name)
+    existing = _project_by_name(catalog["projects"], name)
     if existing is not None:
         logger.info("taskd.apply | branch | project_from_category=true name=%s", name)
         return str(existing["id"])
     project = entourage.create_project(name)
+    catalog["projects"].append(project)
     logger.info("taskd.apply | branch | project_from_category=true name=%s created=true", name)
     return str(project["id"])
 
 
-def _apply_category_names(names: tuple[str, ...], entourage: EntouragePort) -> list[str]:
+def _apply_category_names(names: tuple[str, ...], catalog: dict[str, list[dict[str, Any]]]) -> list[str]:
     """Return category names that exist locally; never create catalog rows.
 
     :param names: Graph category names. Example: ``("Urgent",)``
-    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param catalog: Cached categories. Example: ``{"projects": [], "categories": [{"name": "Urgent"}]}``
     :return: Names to apply. Example: ``["Urgent"]``
     """
     applied: list[str] = []
     for name in names:
-        if _category_by_name(entourage.list_categories(), name) is not None:
+        if _category_by_name(catalog["categories"], name) is not None:
             applied.append(name)
     return applied
+
+
+def _drop_leftover_calendar_project(
+    events: tuple[SnapshotEvent, ...],
+    entourage: EntouragePort,
+    uid_map: UidMap,
+) -> int:
+    """Delete leftover Project Calendar after events have moved or been cleared.
+
+    :param events: Snapshot events. Example: ``(SnapshotEvent(..., categories=("Work",)),)``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: 1 if deleted. Example: ``1``
+    """
+    leftover = _project_by_name(entourage.list_projects(), LEFTOVER_CALENDAR_PROJECT_NAME)
+    if leftover is None or _keep_calendar_named_project(events, leftover, uid_map):
+        return 0
+    return _delete_leftover_calendar_project(str(leftover["id"]), entourage)
+
+
+def _keep_calendar_named_project(events: tuple[SnapshotEvent, ...], leftover: dict[str, Any], uid_map: UidMap) -> bool:
+    """Keep Project Calendar when a category or To Do list owns that name.
+
+    :param events: Snapshot events. Example: ``(SnapshotEvent(..., categories=("Calendar",)),)``
+    :param leftover: Project row. Example: ``{"id": "40", "name": "Calendar"}``
+    :param uid_map: Joins. Example: ``UidMap()``
+    :return: True when delete must not run. Example: ``True``
+    """
+    project_id = str(leftover["id"])
+    if project_id in set(uid_map.lists.values()):
+        logger.info("taskd.apply | branch | leftover_calendar_kept=true reason=todo_list id=%s", project_id)
+        return True
+    if any(row.categories and row.categories[0] == LEFTOVER_CALENDAR_PROJECT_NAME for row in events):
+        logger.info("taskd.apply | branch | leftover_calendar_kept=true reason=category id=%s", project_id)
+        return True
+    return False
+
+
+def _delete_leftover_calendar_project(project_id: str, entourage: EntouragePort) -> int:
+    """Remove leftover Project Calendar from Entourage.
+
+    :param project_id: Entourage id. Example: ``"40"``
+    :param entourage: EntouragePort. Example: ``FakeEntourage()``
+    :return: 1 if deleted. Example: ``1``
+    """
+    try:
+        entourage.delete_project(project_id)
+    except Exception as exc:
+        logger.error(
+            "taskd.apply | error | leftover_calendar_remove_failed=true id=%s err=%s",
+            project_id,
+            exc,
+        )
+        return 0
+    logger.info(
+        "taskd.apply | branch | leftover_calendar_removed=true name=%s id=%s",
+        LEFTOVER_CALENDAR_PROJECT_NAME,
+        project_id,
+    )
+    return 1
 
 
 def _event_body_fields(row: SnapshotEvent) -> dict[str, str]:

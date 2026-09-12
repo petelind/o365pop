@@ -88,6 +88,26 @@ def test_event_assigns_sets_project_list_and_categories() -> None:
 
 
 @pytest.mark.unit
+def test_event_assigns_clears_project_list_when_uncategorized() -> None:
+    """Uncategorized Graph events must drop leftover Entourage Projects.
+
+    :return: None
+    """
+    body = _event_assigns({"project_id": None})
+    assert "set project list of e to {}" in body
+
+
+@pytest.mark.unit
+def test_event_assigns_skips_project_when_id_omitted() -> None:
+    """Partial updates without project_id must not wipe the Project.
+
+    :return: None
+    """
+    body = _event_assigns({"subject": "Standup"})
+    assert "project list" not in body
+
+
+@pytest.mark.unit
 def test_event_create_script_uses_content_for_html_body() -> None:
     """Create script must set ``content`` after create, not inside ``with properties``.
 
