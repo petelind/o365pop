@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import textwrap
 from datetime import UTC, datetime, timedelta
 from email import message_from_bytes, policy
 from email.message import EmailMessage, Message
 from email.utils import format_datetime, parsedate_to_datetime
+from html import unescape
+from html.parser import HTMLParser
 from io import BytesIO
 from pathlib import Path
 
@@ -17,7 +20,6 @@ from twisted.mail.pop3 import IMailbox
 from zope.interface import implementer
 
 from o365pop.mailstore.maildir import MaildirStore
-from o365pop.tosser.mime_factory import _html_to_plain
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ PALM_WINDOW = timedelta(hours=24)
 _PALM_DELETED = "palm-deleted.json"
 _HEADER_BUDGET = 400
 _LINE_WIDTH = 78
+_BLOCK_TAGS = frozenset({"p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4"})
 
 
 def hash_palm_uidl(store_uidl: str) -> str:
@@ -327,6 +330,38 @@ def _seven_bit(text: str) -> str:
     :return: ASCII. Example: ``"caf?"``
     """
     return text.encode("ascii", "replace").decode("ascii")
+
+
+def _html_to_plain(markup: str) -> str:
+    """Strip tags for the Palm text/plain body.
+
+    :param markup: HTML. Example: ``"<p>Ship it</p>"``
+    :return: Visible text. Example: ``"Ship it"``
+    """
+    parser = _PlainExtractor()
+    parser.feed(markup)
+    parser.close()
+    text = unescape("".join(parser.parts)).replace("\xa0", " ")
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+class _PlainExtractor(HTMLParser):
+    """Collect visible text; treat block tags as line breaks."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _BLOCK_TAGS and tag != "br":
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
 
 
 def _wrap_lines(text: str) -> str:
