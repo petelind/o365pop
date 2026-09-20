@@ -306,6 +306,8 @@ def _plain_body(parsed: Message) -> str:
     """
     plain = _first_part(parsed, "text/plain").strip()
     html_text = _html_to_plain(_first_part(parsed, "text/html"))
+    if _looks_like_html(plain):
+        plain = _html_to_plain(plain)
     if html_text and _is_stub_plain(plain):
         logger.info("tosser.palm_view.rewrite_palm_rfc822 | branch | body_source=html")
         return html_text
@@ -319,6 +321,16 @@ def _plain_body(parsed: Message) -> str:
     if parsed.get_content_type() == "text/html":
         return _html_to_plain(payload)
     return payload
+
+
+def _looks_like_html(text: str) -> bool:
+    """True when Graph stuffed markup into text/plain.
+
+    :param text: Decoded text/plain. Example: ``"<p>Hi</p>"``
+    :return: Whether to strip tags. Example: ``True``
+    """
+    head = text.lstrip()[:80].lower()
+    return head.startswith("<") or any(marker in head for marker in ("<p>", "<p ", "<div", "<br", "<at "))
 
 
 def _is_stub_plain(text: str) -> bool:

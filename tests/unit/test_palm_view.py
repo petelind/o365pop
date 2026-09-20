@@ -120,6 +120,20 @@ def test_rewrite_palm_rfc822_uses_html_when_text_plain_is_blank() -> None:
 
 
 @pytest.mark.unit
+def test_rewrite_palm_rfc822_strips_html_stuffed_in_text_plain() -> None:
+    """Graph often puts <p> markup in the text/plain part.
+
+    :return: None
+    """
+    raw = _rfc822(subject="Teams: chat", body="<p>ntd, thanks for the information</p>", when=NOW)
+    rewritten = rewrite_palm_rfc822(raw, now=NOW)
+    assert rewritten is not None
+    body = _body_of(rewritten)
+    assert b"ntd, thanks for the information" in body
+    assert b"<p>" not in body
+
+
+@pytest.mark.unit
 def test_rewrite_palm_rfc822_uses_html_when_plain_is_system_tag() -> None:
     """Teams systemEventMessage text/plain must not hide the HTML.
 
