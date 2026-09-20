@@ -112,6 +112,8 @@ def _patch_body(payload: dict[str, Any]) -> dict[str, Any]:
         body["dueDateTime"] = {"dateTime": str(payload["dueDateTime"]).replace("Z", ""), "timeZone": "UTC"}
     if payload.get("body") is not None:
         body["body"] = {"contentType": "text", "content": str(payload["body"])}
+    if payload.get("categories") is not None:
+        body["categories"] = list(payload["categories"])
     return body
 
 
