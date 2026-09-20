@@ -55,30 +55,47 @@ class MaildirStore:
         mapping = self._load_uidls()
         return [uidl for uidl, key in mapping.items() if key in self._box]
 
-    def peek(self, uidl: str, limit: int = 4096) -> bytes:
-        """Read the first bytes of a message (headers).
+    def scan_heads(self, limit: int = 2048) -> list[tuple[str, datetime, bytes]]:
+        """UIDL, mtime, and header prefix without refreshing the Maildir TOC.
+
+        :param limit: Header bytes per file. Example: ``2048``
+        :return: Rows. Example: ``[("uid-outlook-1", datetime(2026, 9, 20, tzinfo=UTC), b"Date: ...")]``
+        """
+        rows: list[tuple[str, datetime, bytes]] = []
+        for uidl, key in self._load_uidls().items():
+            path = self._file_path(key)
+            if path is None:
+                continue
+            stat = path.stat()
+            with path.open("rb") as handle:
+                head = handle.read(limit)
+            rows.append((uidl, datetime.fromtimestamp(stat.st_mtime, tz=UTC), head))
+        logger.info("MaildirStore.scan_heads | exit | count=%s", len(rows))
+        return rows
+
+    def read_bytes(self, uidl: str) -> bytes:
+        """Read a full RFC822 via the uidl map (no Maildir TOC refresh).
 
         :param uidl: UIDL. Example: ``"uid-outlook-1"``
-        :param limit: Max bytes. Example: ``4096``
-        :return: Prefix. Example: ``b"Date: Sat, 20 Sep 2026..."``
+        :return: Bytes. Example: ``b"Subject: Q3 close\\r\\n"``
         :raises KeyError: if missing
         """
-        handle = self._box.get_file(self._key(uidl))
-        try:
-            return handle.read(limit)
-        finally:
-            handle.close()
+        path = self._file_path(self._key(uidl))
+        if path is None:
+            raise KeyError(uidl)
+        return path.read_bytes()
 
-    def mtime(self, uidl: str) -> datetime:
-        """Filesystem mtime for a stored message.
+    def _file_path(self, key: str) -> Path | None:
+        """Resolve a maildir key to new/ or cur/.
 
-        :param uidl: UIDL. Example: ``"uid-outlook-1"``
-        :return: Aware UTC time. Example: ``datetime(2026, 9, 20, tzinfo=UTC)``
-        :raises KeyError: if missing
+        :param key: Maildir filename. Example: ``"1234567890.M123P1"``
+        :return: Path or None. Example: ``Path("var/maildir/new/1234567890.M123P1")``
         """
-        key = self._key(uidl)
-        path = Path(self._box._path) / self._box._lookup(key)
-        return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+        for subdir in ("new", "cur"):
+            path = self._root / subdir / key
+            if path.is_file():
+                return path
+        return None
 
     def _key(self, uidl: str) -> str:
         """Maildir key for a UIDL.
