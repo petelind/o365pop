@@ -2,6 +2,8 @@
 
 Local LibreELEC daemon that lets vintage POP/SMTP clients (Entourage 2008) talk to Microsoft 365.
 
+Palm TX **mail** is the POP `USER palm` view. Palm TX **calendar / tasks / memos** are a sibling project, [ModernHotSync](https://github.com/petelind/ModernHotSync): same Entra public-client app and token vault; `mhs serve --transport network` (TCP 14238) runs in this LibreELEC container.
+
 ## Quick Start
 
 ```bash

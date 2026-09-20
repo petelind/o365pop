@@ -42,6 +42,8 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 
 ## PALM (`palm.feature`)
 
+Mail only (`USER palm` / `maildir-palm`). Calendar / Tasks / Memos are [ModernHotSync](https://github.com/petelind/ModernHotSync) (out of this catalog).
+
 | Scenario | Phrase | Pytest / helper |
 |---|---|---|
 | PALM1.1 | USER `palm`; UIDL hash ≤70; text/plain 7-bit ≤5KB | `tests/integration/test_pop_palm_view.py` + `tests/unit/test_palm_view.py` |

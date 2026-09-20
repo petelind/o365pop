@@ -14,6 +14,7 @@ Key decisions:
 - Calendar: Graph calendars + `calendarView` → `/storage/o365pop/calendar/` snapshot → same Mac `taskd` → Entourage events. Two-way on subject, times, location, body, categories, project, reminder, show-as, sensitivity, attachments, create, and delete (CAL Q15–Q20).
 - POP/SMTP bind to the WireGuard address (optional LAN). Never the WAN NIC.
 - Device-code MSAL login; Fernet-encrypted tokens; local POP/SMTP password is not the Microsoft password.
+- **Palm TX PIM** (calendar / tasks / memos) is [ModernHotSync](https://github.com/petelind/ModernHotSync), not this catalog: DLP over USB or TCP **14238**, same Graph tokens, `mhs serve` in this container. Mail on the handheld stays `USER palm` / `maildir-palm`.
 
 ## Design Principles
 
@@ -148,6 +149,7 @@ Do **not** mint Calendar as RFC822. Do **not** write Entourage’s `Database` fi
 ### Client-facing: POP3 + SMTP
 
 - POP3 `:110` — **Twisted** `twisted.mail.pop3` over maildir. USER/PASS, STAT, LIST, RETR, DELE, UIDL, TOP, CAPA, QUIT. No APOP, no STLS. `popd` is its own process (Twisted reactor). Do not run it inside the aiosmtpd event loop.
+- **Palm TX (ModernHotSync):** Calendar, Tasks, and Memos sync over DLP (USB cradle or Network HotSync TCP 14238). `mhs` imports this package for Graph auth and snapshots. Never a second Azure app. Bind 14238 on host network. See ModernHotSync `tests/hardware/README.md` and `deploy/libreelec/README.md`.
 - **Palm view (same `popd`, same `:110`):** USER `palm` + the local mailbox password. Celery `publish_palm_view` incrementally writes `var/maildir-palm/` after each inbound toss (Outlook mail only — no `uid-teams-*` / `X-O365POP-Source: teams`; hashed UIDL, last 24h, flat 7-bit text/plain with a visible body, ≤5 KB, no MIME-Version / multipart). `popd` only serves those files — PASS does not rewrite. USER `MAILBOX_USER` (Entourage) still uses `var/maildir` including Teams. Palm DELE deletes the Palm file and records the hash in `palm-deleted.json` so the next publish does not restore it.
 - SMTP `:587` (optional `:25`) — EHLO, AUTH LOGIN, AUTH PLAIN, MAIL/RCPT/DATA. No STARTTLS, no XOAUTH2.
 - Contract tests use a real `poplib` / `smtplib` client against the daemons.

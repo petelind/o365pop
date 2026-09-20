@@ -8,6 +8,9 @@ Runs o365pop as a Docker stack on LibreELEC. Has WireGuard inbound. Signs in to 
 **Vintage Client** — Entourage 2008 (and other POP/SMTP clients)
 Lives on a Mac that reaches LibreELEC through WireGuard or LAN. Speaks POP3 on 110 and SMTP on 587 with no SSL. Uses a local mailbox password, not the Microsoft password. Tasks and Calendar come from Mac `taskd` (AppleScript), not from POP.
 
+**Palm TX** — Handheld
+Collects mail as POP `USER palm`. Calendar, Tasks, and Memos HotSync to LibreELEC over WiFi (TCP 14238) via [ModernHotSync](https://github.com/petelind/ModernHotSync). Not POP, not Mac `taskd`.
+
 ---
 
 ## System Architecture Note
@@ -88,6 +91,12 @@ LibreELEC publishes `/storage/o365pop/tasks/snapshot.json`. Every minute `taskd`
 
 LibreELEC publishes `/storage/o365pop/calendar/snapshot.json` (window −30 / +180 days) and attachment files. The same `taskd` AppleScripts Entourage `event` objects: Project from the event’s first category name (create if missing; uncategorized stays Calendar-only — Q15), categories from the TASK catalog, attendees as text in content (not meeting invites). Editing a uid-tagged event PATCHes Graph. A new Entourage event with no uid POSTs to the default mailbox calendar, then the next snapshot stamps `o365pop-uid:`. Reminders, show-as, sensitivity, and file attachments sync both ways. Recurring series expand to one Entourage event per occurrence. If LibreELEC is down, the same quiet retry as Act 5.
 
+### Act 7: Operator enables Network HotSync for the Palm TX
+
+**Context**: Calendar / Tasks / Memos on the handheld are not POP and not Entourage `taskd`.
+
+Denis checks out ModernHotSync at `/storage/modernhotsync`, recreates the o365pop container so `/mhs` is mounted, and leaves `mhs serve --transport network` running on TCP 14238 (same Graph tokens). On the TX: HotSync → Network, Primary PC Address = LibreELEC LAN IP. Press HotSync. Live steps live in ModernHotSync `tests/hardware/README.md`. Mail on the same handheld is still Act 2 / `USER palm`.
+
 ---
 
 ## Acts and feature files
@@ -101,5 +110,6 @@ LibreELEC publishes `/storage/o365pop/calendar/snapshot.json` (window −30 / +1
 | SMTP + send | `docs/features/act-1-bridge/smtp.feature` | `docs/plans/SMTP_IMPLEMENTATION_PLAN.md` |
 | Teams reply map | `docs/features/act-1-bridge/teams.feature` | `docs/plans/TEAM_IMPLEMENTATION_PLAN.md` |
 | LibreELEC deploy | `docs/features/act-1-bridge/deploy.feature` | `docs/plans/DEP_IMPLEMENTATION_PLAN.md` |
+| Palm TX Network HotSync | ModernHotSync `tests/hardware/README.md` | sibling repo; `mhs serve` in this container |
 | Entourage Tasks | `docs/features/act-1-bridge/tasks.feature` | `docs/plans/TASK_IMPLEMENTATION_PLAN.md` |
 | Entourage Calendar | `docs/features/act-1-bridge/calendar.feature` | BPE-08 `docs/plans/CAL_CHANGE_RECONCILIATION.md` (BPE-01 later) |
