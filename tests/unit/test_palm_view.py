@@ -101,6 +101,23 @@ def test_rewrite_palm_rfc822_caps_size_at_5kb() -> None:
 
 
 @pytest.mark.unit
+def test_rewrite_palm_rfc822_flattens_folded_optional_headers() -> None:
+    """Folded Reply-To must not raise on rewrite.
+
+    :return: None
+    """
+    raw = (
+        f"From: Ada <ada@example.com>\r\nTo: denis@example.com\r\n"
+        f"Subject: fold\r\nDate: {format_datetime(NOW)}\r\n"
+        f"Reply-To: teams.longchatid@o365pop.local\r\n"
+        f"\t (folded)\r\n\r\nHi\r\n"
+    ).encode("utf-8")
+    rewritten = rewrite_palm_rfc822(raw, now=NOW)
+    assert rewritten is not None
+    assert b"Reply-To:" in rewritten
+
+
+@pytest.mark.unit
 def test_rewrite_palm_rfc822_uses_fallback_when_date_missing() -> None:
     """Teams-style mail without Date uses maildir mtime.
 

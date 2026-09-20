@@ -321,7 +321,8 @@ def _ascii_header(value: str | None, fallback: str) -> str:
     """
     if not value:
         return fallback
-    return str(value).encode("ascii", "replace").decode("ascii")
+    flat = " ".join(str(value).split())
+    return flat.encode("ascii", "replace").decode("ascii")
 
 
 def _copy_optional_header(dest: EmailMessage, source: Message, name: str) -> None:
