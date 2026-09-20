@@ -125,8 +125,12 @@ class MaildirStore:
         :return: Pairs. Example: ``[("uid-outlook-1", 240)]``
         """
         logger.info("MaildirStore.list_uidls | entry")
-        mapping = self._load_uidls()
-        pairs = [(uidl, len(self._box[key])) for uidl, key in mapping.items() if key in self._box]
+        pairs: list[tuple[str, int]] = []
+        for uidl, key in self._load_uidls().items():
+            path = self._file_path(key)
+            if path is None:
+                continue
+            pairs.append((uidl, path.stat().st_size))
         logger.info("MaildirStore.list_uidls | exit | count=%s", len(pairs))
         return pairs
 

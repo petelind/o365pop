@@ -238,6 +238,9 @@ def test_publish_palm_view_writes_hashed_7bit_and_skips_old(
     assert counts["dropped"] >= 1
     uidls = dest.iter_uidls()
     assert uidls == [hash_palm_uidl(_LONG_UIDL)]
+    listed = dest.list_uidls()
+    raw = dest.read_bytes(uidls[0])
+    assert listed == [(uidls[0], len(raw))]
     rfc = dest.get(uidls[0])
     assert b"multipart" not in rfc.lower()
     assert b"MIME-Version:" not in rfc
