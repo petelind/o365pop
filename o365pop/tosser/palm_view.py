@@ -179,7 +179,7 @@ def _can_reuse(
         return False
     if prev.get("source_mtime") != stamp or prev.get("palm_uidl") != palm_id:
         return False
-    return palm_id in dest.iter_uidls()
+    return dest.has_uidl(palm_id)
 
 
 def _replace_dest(dest: MaildirStore, palm_id: str, rewritten: bytes) -> None:
@@ -190,7 +190,7 @@ def _replace_dest(dest: MaildirStore, palm_id: str, rewritten: bytes) -> None:
     :param rewritten: Flat RFC822. Example: ``b"Date: ..."``
     :return: None
     """
-    if palm_id in dest.iter_uidls():
+    if dest.has_uidl(palm_id):
         dest.delete(palm_id)
     dest.add(rewritten, palm_id)
 
@@ -330,7 +330,10 @@ def _is_stub_plain(text: str) -> bool:
     if len(text) < 8:
         return True
     lowered = text.lower()
-    return any(marker in lowered for marker in _STUB_PLAIN)
+    if any(marker in lowered for marker in _STUB_PLAIN):
+        return True
+    stripped = text.strip()
+    return stripped.startswith("<") and stripped.endswith(">") and " " not in stripped
 
 
 def _first_part(parsed: Message, content_type: str) -> str:

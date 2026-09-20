@@ -120,6 +120,30 @@ def test_rewrite_palm_rfc822_uses_html_when_text_plain_is_blank() -> None:
 
 
 @pytest.mark.unit
+def test_rewrite_palm_rfc822_uses_html_when_plain_is_system_tag() -> None:
+    """Teams systemEventMessage text/plain must not hide the HTML.
+
+    :return: None
+    """
+    date = format_datetime(NOW)
+    raw = (
+        f"From: Ada <ada@example.com>\r\nTo: denis@example.com\r\n"
+        f"Subject: Teams: general\r\nDate: {date}\r\nMIME-Version: 1.0\r\n"
+        f"Content-Type: multipart/alternative; boundary=bound\r\n\r\n"
+        f"--bound\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n"
+        f"<systemEventMessage/>\r\n"
+        f"--bound\r\nContent-Type: text/html; charset=utf-8\r\n\r\n"
+        f"<p>Ada joined the chat</p>\r\n"
+        f"--bound--\r\n"
+    ).encode("utf-8")
+    rewritten = rewrite_palm_rfc822(raw, now=NOW)
+    assert rewritten is not None
+    body = _body_of(rewritten)
+    assert b"Ada joined the chat" in body
+    assert b"<systemEventMessage/>" not in body
+
+
+@pytest.mark.unit
 def test_rewrite_palm_rfc822_drops_mail_older_than_24h(caplog: pytest.LogCaptureFixture) -> None:
     """Date 48h ago is omitted from the Palm view.
 

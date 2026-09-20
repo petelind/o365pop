@@ -75,7 +75,7 @@ def _build_factory(maildir: Path, palm_maildir: Path, db_path: Path) -> Factory:
     :param db_path: sqlite path. Example: ``Path("var/o365pop.sqlite3")``
     :return: Twisted factory. Example: ``<_POP3Factory>``
     """
-    realm = _MailboxRealm(MaildirStore(maildir), MaildirStore(palm_maildir))
+    realm = _MailboxRealm(MaildirStore(maildir), palm_maildir)
     portal = Portal(realm, [_LocalPasswordChecker(db_path)])
     factory = _POP3Factory(portal)
     logger.info("popd.service._build_factory | config | tls=false apop=false")
@@ -120,16 +120,16 @@ class _POP3Factory(Factory):
 class _MailboxRealm:
     """Return a MaildirPopMailbox avatar after successful USER/PASS."""
 
-    def __init__(self, store: MaildirStore, palm_store: MaildirStore) -> None:
+    def __init__(self, store: MaildirStore, palm_root: Path) -> None:
         self._store = store
-        self._palm_store = palm_store
+        self._palm_root = palm_root
 
     def requestAvatar(self, avatarId, mind, *interfaces):  # noqa: N802
         if IMailbox not in interfaces:
             raise NotImplementedError("IMailbox required")
         username = _as_text(avatarId)
         if username == PALM_VIEW_USER:
-            mailbox = PalmPublishedMailbox(self._palm_store)
+            mailbox = PalmPublishedMailbox(MaildirStore(self._palm_root))
             view = "palm"
         else:
             mailbox = MaildirPopMailbox(self._store)

@@ -54,8 +54,16 @@ class MaildirStore:
 
         :return: UIDL strings. Example: ``["uid-outlook-1"]``
         """
-        mapping = self._load_uidls()
-        return [uidl for uidl, key in mapping.items() if key in self._box]
+        return [uidl for uidl in self._load_uidls() if self.has_uidl(uidl)]
+
+    def has_uidl(self, uidl: str) -> bool:
+        """True when uidl.json points at a file in new/ or cur/.
+
+        :param uidl: UIDL. Example: ``"uid-outlook-1"``
+        :return: Whether the file exists. Example: ``True``
+        """
+        key = self._load_uidls().get(uidl)
+        return bool(key) and self._file_path(key) is not None
 
     def scan_heads(self, limit: int = 2048) -> list[tuple[str, datetime, bytes]]:
         """UIDL, mtime, and header prefix without refreshing the Maildir TOC.
