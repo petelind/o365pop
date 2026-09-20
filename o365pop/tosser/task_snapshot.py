@@ -110,6 +110,8 @@ def _patch_body(payload: dict[str, Any]) -> dict[str, Any]:
         body["title"] = str(payload["title"])
     if payload.get("dueDateTime"):
         body["dueDateTime"] = {"dateTime": str(payload["dueDateTime"]).replace("Z", ""), "timeZone": "UTC"}
+    if payload.get("body") is not None:
+        body["body"] = {"contentType": "text", "content": str(payload["body"])}
     return body
 
 
@@ -190,8 +192,22 @@ def _public_task(row: dict[str, Any], list_id: str) -> dict[str, Any]:
         "dueDateTime": _due_iso(row.get("dueDateTime")),
         "status": str(row.get("status") or "notStarted"),
         "categories": names,
+        "body": _body_text(row.get("body")),
         "lastModifiedDateTime": str(row.get("lastModifiedDateTime") or ""),
     }
+
+
+def _body_text(value: object) -> str:
+    """Flatten a Graph itemBody or string into snapshot text.
+
+    :param value: Graph body. Example: ``{"content": "Send to finance", "contentType": "text"}``
+    :return: Body text. Example: ``"Send to finance"``
+    """
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        return str(value.get("content") or "")
+    return str(value)
 
 
 def _due_iso(value: Any) -> str | None:
