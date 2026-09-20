@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # offline_access is reserved — MSAL adds it automatically.
 GRAPH_SCOPES = (
     "Mail.Read",
+    "Mail.ReadWrite",
     "Mail.Send",
     "Chat.ReadWrite",
     "User.Read",
@@ -280,7 +281,7 @@ def _msal_interactive_login(client_id: str, tenant_id: str) -> TokenBundle:
     sys.stderr.write(
         "\n=== Microsoft interactive login ===\n"
         f"Opening a browser (redirect {LOOPBACK_REDIRECT}).\n"
-        "Sign in and accept Mail.Read, Mail.Send, Chat.ReadWrite, User.Read, "
+        "Sign in and accept Mail.Read, Mail.ReadWrite, Mail.Send, Chat.ReadWrite, User.Read, "
         "Tasks.ReadWrite, MailboxSettings.Read.\n\n"
     )
     sys.stderr.flush()
@@ -412,7 +413,7 @@ def _emit_login_failure(flow: str, msal_error: str, description: str) -> None:
     if flow == "interactive":
         sys.stderr.write(
             f"Interactive login failed ({msal_error}). {hint}\n"
-            "If this is AADSTS65001, add Mail.Read, Mail.Send, Chat.ReadWrite, "
+            "If this is AADSTS65001, add Mail.Read, Mail.ReadWrite, Mail.Send, Chat.ReadWrite, "
             "Tasks.ReadWrite, MailboxSettings.Read "
             "on the Azure app and retry python -m o365pop login --interactive.\n"
         )
