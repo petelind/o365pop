@@ -267,6 +267,33 @@ def test_publish_palm_view_writes_hashed_7bit_and_skips_old(
 
 
 @pytest.mark.unit
+def test_publish_palm_view_omits_teams_keeps_outlook(sandbox: MailboxSandbox, caplog: pytest.LogCaptureFixture) -> None:
+    """PALM1.7 tossed Teams chat is not published.
+
+    :return: None
+    """
+    caplog.set_level("INFO")
+    source = MaildirStore(sandbox.maildir)
+    dest = MaildirStore(sandbox.root / "maildir-palm")
+    source.add(_rfc822(subject="Q3 close", body="numbers", when=NOW), "uid-outlook-q3")
+    teams = (
+        f"From: Ada <teams.chat@o365pop.local>\r\nTo: me@o365pop.local\r\n"
+        f"Subject: Teams: general\r\nDate: {format_datetime(NOW)}\r\n"
+        f"X-O365POP-Source: teams\r\nContent-Type: text/plain\r\n\r\nShip it\r\n"
+    ).encode("utf-8")
+    source.add(teams, "uid-teams-msg-1")
+    counts = publish_palm_view(source, dest, now=NOW)
+    assert counts["written"] == 1
+    assert dest.iter_uidls() == [hash_palm_uidl("uid-outlook-q3")]
+    assert hash_palm_uidl("uid-teams-msg-1") not in dest.iter_uidls()
+    assert_log_story(
+        caplog,
+        where="tosser.palm_view.publish",
+        beats={"branch": ["skipped=true", "reason=teams"], "exit": ["written=1"]},
+    )
+
+
+@pytest.mark.unit
 def test_publish_palm_view_skips_hidden_and_reuses_unchanged(sandbox: MailboxSandbox) -> None:
     """Hidden hashes stay out; a second publish reuses the dest file.
 

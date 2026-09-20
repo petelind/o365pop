@@ -29,6 +29,7 @@ _HEADER_BUDGET = 400
 _LINE_WIDTH = 78
 _BLOCK_TAGS = frozenset({"p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4"})
 _STUB_PLAIN = ("please view", "html formatted", "this message is in html")
+_TEAMS_UIDL_PREFIX = "uid-teams-"
 
 
 def hash_palm_uidl(store_uidl: str) -> str:
@@ -82,7 +83,7 @@ def publish_palm_view(
     *,
     now: datetime | None = None,
 ) -> dict[str, int]:
-    """Incrementally publish Palm-safe files into dest.
+    """Incrementally publish Palm-safe Outlook mail into dest (no Teams).
 
     :param source: Entourage maildir. Example: ``MaildirStore(Path("var/maildir"))``
     :param dest: Palm maildir. Example: ``MaildirStore(Path("var/maildir-palm"))``
@@ -99,7 +100,7 @@ def publish_palm_view(
         palm_id = hash_palm_uidl(store_uidl)
         stamp = mtime.isoformat()
         when = _message_when(message_from_bytes(head), mtime)
-        if palm_id in hidden or when < clock - PALM_WINDOW:
+        if palm_id in hidden or when < clock - PALM_WINDOW or _is_teams_message(store_uidl, head):
             dropped += 1
             continue
         if _can_reuse(index, dest, store_uidl, palm_id, stamp):
@@ -156,6 +157,22 @@ def save_hidden_uidls(root: Path, hidden: set[str]) -> None:
     root.mkdir(parents=True, exist_ok=True)
     (root / _PALM_DELETED).write_text(json.dumps(sorted(hidden)))
     logger.info("tosser.palm_view.save_hidden_uidls | exit | count=%s", len(hidden))
+
+
+def _is_teams_message(store_uidl: str, head: bytes) -> bool:
+    """True for tossed Teams chat, not Outlook mail.
+
+    :param store_uidl: Maildir UIDL. Example: ``"uid-teams-abc"``
+    :param head: Header prefix. Example: ``b"X-O365POP-Source: teams"``
+    :return: Whether to omit from Palm. Example: ``True``
+    """
+    if store_uidl.startswith(_TEAMS_UIDL_PREFIX):
+        logger.info("tosser.palm_view.publish | branch | skipped=true reason=teams")
+        return True
+    if b"x-o365pop-source: teams" in head.lower():
+        logger.info("tosser.palm_view.publish | branch | skipped=true reason=teams")
+        return True
+    return False
 
 
 def _can_reuse(

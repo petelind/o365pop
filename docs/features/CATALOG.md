@@ -50,6 +50,7 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | PALM1.4 | Palm DELE does not remove Entourage maildir | `tests/integration/test_pop_palm_view.py` |
 | PALM1.5 | PASS does not rewrite; popd serves maildir-palm | `tests/integration/test_pop_palm_view.py` |
 | PALM1.6 | RETR body visible; stub text/plain uses HTML; no MIME-Version | `tests/unit/test_palm_view.py` + `tests/integration/test_pop_palm_view.py` |
+| PALM1.7 | Palm omits tossed Teams; Entourage still sees chat | `tests/unit/test_palm_view.py` + `tests/integration/test_pop_palm_view.py` |
 
 ## SMTP / SEND (`smtp.feature`)
 

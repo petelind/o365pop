@@ -43,3 +43,9 @@ Feature: PALM VersaMail sees a Palm-safe POP view
     When publish_palm_view writes maildir-palm
     Then the Palm RETR body is the stripped HTML
     And the file has no MIME-Version
+
+  Scenario: PALM1.7 Palm omits Teams chat
+    Given maildir has one Outlook message and one tossed Teams chat
+    When publish_palm_view writes maildir-palm
+    Then USER "palm" STAT lists only the Outlook message
+    And USER "denis" still sees both messages

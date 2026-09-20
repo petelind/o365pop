@@ -51,6 +51,19 @@ def _blank_plain_html() -> bytes:
     ).encode("utf-8")
 
 
+def _teams_line() -> bytes:
+    """Tossed Teams RFC822 with the source header.
+
+    :return: RFC822 bytes. Example: ``b"X-O365POP-Source: teams\\r\\n"``
+    """
+    date = format_datetime(datetime.now(UTC))
+    return (
+        f"From: Ada <teams.chat@o365pop.local>\r\nTo: me@o365pop.local\r\n"
+        f"Subject: Teams: general\r\nDate: {date}\r\n"
+        f"X-O365POP-Source: teams\r\nContent-Type: text/plain\r\n\r\nShip it\r\n"
+    ).encode("utf-8")
+
+
 def _dated(subject: str, body: str, when: datetime) -> bytes:
     """Plain message at an explicit Date.
 
@@ -229,6 +242,35 @@ def test_palm_pass_does_not_rewrite(sandbox: MailboxSandbox) -> None:
     finally:
         stop_popd(proc)
     assert "rewrite_palm_rfc822" not in (sandbox.log_dir / "app.log").read_text()
+
+
+@pytest.mark.integration
+def test_palm_omits_teams_keeps_outlook_mail(sandbox: MailboxSandbox) -> None:
+    """PALM1.7 USER palm lists Outlook only; denis still sees Teams.
+
+    :return: None
+    """
+    seed_local_account(sandbox)
+    store = MaildirStore(sandbox.maildir)
+    store.add(_dated("Q3 close", "numbers", datetime.now(UTC)), "uid-outlook-q3")
+    store.add(_teams_line(), "uid-teams-msg-1")
+    _publish(sandbox)
+    proc = start_popd(sandbox, POP_PALM_PORT)
+    try:
+        palm = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
+        palm.user("palm")
+        palm.pass_("local-pass")
+        assert palm.stat()[0] == 1
+        assert _uidls(palm) == [hash_palm_uidl("uid-outlook-q3").encode("ascii")]
+        palm.quit()
+        denis = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
+        denis.user("denis")
+        denis.pass_("local-pass")
+        assert denis.stat()[0] == 2
+        assert b"uid-teams-msg-1" in b"\n".join(_uidls(denis))
+        denis.quit()
+    finally:
+        stop_popd(proc)
 
 
 @pytest.mark.integration
