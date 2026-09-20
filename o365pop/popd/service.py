@@ -15,11 +15,12 @@ from twisted.internet.protocol import Factory
 from twisted.mail.pop3 import POP3, IMailbox
 from zope.interface import implementer
 
-from o365pop.accounts.store import verify_local_password
+from o365pop.accounts.store import PALM_VIEW_USER, verify_local_password
 from o365pop.config import validate_bind
 from o365pop.db import connect
 from o365pop.mailstore.maildir import MaildirStore
 from o365pop.popd.mailbox import MaildirPopMailbox
+from o365pop.popd.palm import PalmSafeMailbox
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +111,17 @@ class _MailboxRealm:
     def requestAvatar(self, avatarId, mind, *interfaces):  # noqa: N802
         if IMailbox not in interfaces:
             raise NotImplementedError("IMailbox required")
-        mailbox = MaildirPopMailbox(self._store)
-        logger.info("popd.service._MailboxRealm.requestAvatar | exit | interface=IMailbox")
+        username = _as_text(avatarId)
+        if username == PALM_VIEW_USER:
+            mailbox = PalmSafeMailbox(self._store)
+            view = "palm"
+        else:
+            mailbox = MaildirPopMailbox(self._store)
+            view = "full"
+        logger.info(
+            "popd.service._MailboxRealm.requestAvatar | exit | interface=IMailbox view=%s",
+            view,
+        )
         return (IMailbox, mailbox, lambda: None)
 
 

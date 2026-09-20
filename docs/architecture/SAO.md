@@ -148,6 +148,7 @@ Do **not** mint Calendar as RFC822. Do **not** write Entourage’s `Database` fi
 ### Client-facing: POP3 + SMTP
 
 - POP3 `:110` — **Twisted** `twisted.mail.pop3` over maildir. USER/PASS, STAT, LIST, RETR, DELE, UIDL, TOP, CAPA, QUIT. No APOP, no STLS. `popd` is its own process (Twisted reactor). Do not run it inside the aiosmtpd event loop.
+- **Palm view (same `popd`, same `:110`):** USER `palm` + the local mailbox password. Same maildir, different IMailbox: UIDL is a SHA-256 hex hash (64 chars, never the Graph id); last 24h only; RETR is text/plain `7bit` CRLF with Date set and headers folded; size ≤5 KB after rewrite; no multipart / Teams HTML. USER `MAILBOX_USER` (Entourage) is unchanged. Palm DELE hides the hash for that view only — it does not delete the maildir file.
 - SMTP `:587` (optional `:25`) — EHLO, AUTH LOGIN, AUTH PLAIN, MAIL/RCPT/DATA. No STARTTLS, no XOAUTH2.
 - Contract tests use a real `poplib` / `smtplib` client against the daemons.
 

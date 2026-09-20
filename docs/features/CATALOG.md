@@ -40,6 +40,15 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | POP1.2 | wrong password `-ERR`; password not logged | `tests/integration/test_pop_auth.py` |
 | POP1.3 | DELE local only; TossedMessage remains; Graph unused | `tests/integration/test_pop_dele_local_only.py` |
 
+## PALM (`palm.feature`)
+
+| Scenario | Phrase | Pytest / helper |
+|---|---|---|
+| PALM1.1 | USER `palm`; UIDL hash ≤70; text/plain 7-bit ≤5KB | `tests/integration/test_pop_palm_view.py` + `tests/unit/test_palm_view.py` |
+| PALM1.2 | mail older than 24h omitted | `tests/integration/test_pop_palm_view.py` + `tests/unit/test_palm_view.py` |
+| PALM1.3 | USER `denis` still sees original UIDL and multipart | `tests/integration/test_pop_palm_view.py` |
+| PALM1.4 | Palm DELE does not remove Entourage maildir | `tests/integration/test_pop_palm_view.py` |
+
 ## SMTP / SEND (`smtp.feature`)
 
 | Scenario | Phrase | Pytest / helper |

@@ -56,8 +56,8 @@ def wait_port(host: str, port: int, timeout: float = 5.0) -> None:
     raise TimeoutError(f"{host}:{port} did not open")
 
 
-def seed_local_mailbox(sandbox: MailboxSandbox, *, password: str = "local-pass") -> None:
-    """Account denis + one RFC822 UIDL uid-outlook-1.
+def seed_local_account(sandbox: MailboxSandbox, *, password: str = "local-pass") -> None:
+    """Account denis / local-pass (and USER palm alias).
 
     :param sandbox: Isolated paths. Example: ``mailbox_sandbox(...)``
     :param password: Local PASS. Example: ``"local-pass"``
@@ -71,8 +71,18 @@ def seed_local_mailbox(sandbox: MailboxSandbox, *, password: str = "local-pass")
         mailbox_user="denis",
         mailbox_password_hash=_hash_local_password(password),
     )
-    MaildirStore(sandbox.maildir).add(_RFC822, "uid-outlook-1")
     conn.close()
+
+
+def seed_local_mailbox(sandbox: MailboxSandbox, *, password: str = "local-pass") -> None:
+    """Account denis + one RFC822 UIDL uid-outlook-1.
+
+    :param sandbox: Isolated paths. Example: ``mailbox_sandbox(...)``
+    :param password: Local PASS. Example: ``"local-pass"``
+    :return: None
+    """
+    seed_local_account(sandbox, password=password)
+    MaildirStore(sandbox.maildir).add(_RFC822, "uid-outlook-1")
 
 
 def start_popd(sandbox: MailboxSandbox, port: int) -> Process:

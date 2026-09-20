@@ -15,6 +15,7 @@ from o365pop.accounts.crypto import decrypt_token, encrypt_token
 logger = logging.getLogger(__name__)
 
 ACCOUNT_ID = 1
+PALM_VIEW_USER = "palm"
 _PBKDF2_ROUNDS = 210_000
 
 
@@ -172,7 +173,7 @@ def verify_local_password(conn: sqlite3.Connection, username: str, password: str
     """Check POP/SMTP credentials against the local hash.
 
     :param conn: Open sqlite connection. Example: ``connect(path)``
-    :param username: Presented user. Example: ``"denis"``
+    :param username: Presented user. Example: ``"palm"``
     :param password: Presented password. Example: ``"local-pass"``
     :return: True if they match. Example: ``True``
     """
@@ -184,10 +185,13 @@ def verify_local_password(conn: sqlite3.Connection, username: str, password: str
     if row is None or not row["mailbox_user"] or not row["mailbox_password_hash"]:
         logger.info("accounts.store.verify_local_password | exit | matched=false reason=missing")
         return False
-    matched = hmac.compare_digest(row["mailbox_user"], username) and _verify_password(
-        password, row["mailbox_password_hash"]
+    user_ok = username == row["mailbox_user"] or username == PALM_VIEW_USER
+    matched = user_ok and _verify_password(password, row["mailbox_password_hash"])
+    logger.info(
+        "accounts.store.verify_local_password | exit | matched=%s view=%s",
+        matched,
+        "palm" if username == PALM_VIEW_USER else "full",
     )
-    logger.info("accounts.store.verify_local_password | exit | matched=%s", matched)
     return matched
 
 

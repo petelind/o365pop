@@ -23,6 +23,14 @@ class MaildirStore:
         self._root.mkdir(parents=True, exist_ok=True)
         self._box = mailbox.Maildir(str(root), create=True)
 
+    @property
+    def root(self) -> Path:
+        """Maildir root on disk.
+
+        :return: Root path. Example: ``Path("var/maildir")``
+        """
+        return self._root
+
     def add(self, rfc822: bytes, uidl: str) -> str:
         """Drop a message and return its key.
 
