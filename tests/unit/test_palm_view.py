@@ -101,6 +101,20 @@ def test_rewrite_palm_rfc822_caps_size_at_5kb() -> None:
 
 
 @pytest.mark.unit
+def test_rewrite_palm_rfc822_uses_fallback_when_date_missing() -> None:
+    """Teams-style mail without Date uses maildir mtime.
+
+    :return: None
+    """
+    raw = b"From: Ada <ada@example.com>\r\nSubject: Teams\r\n\r\nShip it\r\n"
+    old = NOW - timedelta(hours=48)
+    assert rewrite_palm_rfc822(raw, now=NOW, fallback_when=old) is None
+    fresh = rewrite_palm_rfc822(raw, now=NOW, fallback_when=NOW)
+    assert fresh is not None
+    assert b"Date:" in fresh
+
+
+@pytest.mark.unit
 def test_hash_palm_uidl_is_short_and_not_the_graph_id() -> None:
     """UIDL is a 64-char hash, never the Graph-style store id.
 

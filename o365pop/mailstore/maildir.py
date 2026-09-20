@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import mailbox
+from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,51 @@ class MaildirStore:
         mapping[uidl] = key
         self._save_uidls(mapping)
         logger.info("MaildirStore.add | exit | uidl=%s key=%s", uidl, key)
+        return key
+
+    def iter_uidls(self) -> list[str]:
+        """UIDLs that still have a file.
+
+        :return: UIDL strings. Example: ``["uid-outlook-1"]``
+        """
+        mapping = self._load_uidls()
+        return [uidl for uidl, key in mapping.items() if key in self._box]
+
+    def peek(self, uidl: str, limit: int = 4096) -> bytes:
+        """Read the first bytes of a message (headers).
+
+        :param uidl: UIDL. Example: ``"uid-outlook-1"``
+        :param limit: Max bytes. Example: ``4096``
+        :return: Prefix. Example: ``b"Date: Sat, 20 Sep 2026..."``
+        :raises KeyError: if missing
+        """
+        handle = self._box.get_file(self._key(uidl))
+        try:
+            return handle.read(limit)
+        finally:
+            handle.close()
+
+    def mtime(self, uidl: str) -> datetime:
+        """Filesystem mtime for a stored message.
+
+        :param uidl: UIDL. Example: ``"uid-outlook-1"``
+        :return: Aware UTC time. Example: ``datetime(2026, 9, 20, tzinfo=UTC)``
+        :raises KeyError: if missing
+        """
+        key = self._key(uidl)
+        path = Path(self._box._path) / self._box._lookup(key)
+        return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+
+    def _key(self, uidl: str) -> str:
+        """Maildir key for a UIDL.
+
+        :param uidl: UIDL. Example: ``"uid-outlook-1"``
+        :return: Key. Example: ``"1234567890.M123P1"``
+        :raises KeyError: if missing
+        """
+        key = self._load_uidls().get(uidl)
+        if key is None or key not in self._box:
+            raise KeyError(uidl)
         return key
 
     def list_uidls(self) -> list[tuple[str, int]]:

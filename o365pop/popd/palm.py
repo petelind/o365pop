@@ -39,20 +39,26 @@ def hash_palm_uidl(store_uidl: str) -> str:
     :return: 64-char hex digest. Example: ``"2c26b46b68ffc68f..."``
     """
     digest = hashlib.sha256(store_uidl.encode("utf-8")).hexdigest()
-    logger.info("popd.palm.hash_palm_uidl | exit | chars=%s", len(digest))
+    logger.debug("popd.palm.hash_palm_uidl | exit | chars=%s", len(digest))
     return digest
 
 
-def rewrite_palm_rfc822(raw: bytes, *, now: datetime | None = None) -> bytes | None:
+def rewrite_palm_rfc822(
+    raw: bytes,
+    *,
+    now: datetime | None = None,
+    fallback_when: datetime | None = None,
+) -> bytes | None:
     """Rewrite one message to Palm-safe text/plain, or drop it.
 
     :param raw: Original RFC822. Example: ``b"Content-Type: multipart/..."``
     :param now: Clock for the 24h window. Example: ``datetime(2026, 9, 20, tzinfo=UTC)``
+    :param fallback_when: Used when Date is missing (maildir mtime). Example: ``datetime(2026, 9, 19, tzinfo=UTC)``
     :return: Rewritten bytes, or None if too old / still too large. Example: ``b"Date: ..."``
     """
     clock = now or datetime.now(UTC)
     parsed = message_from_bytes(raw)
-    when = _message_when(parsed, clock)
+    when = _message_when(parsed, fallback_when or clock)
     if when < clock - PALM_WINDOW:
         logger.info("popd.palm.rewrite_palm_rfc822 | branch | skipped=true reason=too_old")
         return None
@@ -83,15 +89,38 @@ def list_palm_messages(
     skip = hidden or set()
     rows: list[tuple[str, str, bytes]] = []
     dropped = 0
-    for store_uidl, _size in store.list_uidls():
+    for store_uidl in store.iter_uidls():
         palm_id = hash_palm_uidl(store_uidl)
-        rewritten = None if palm_id in skip else rewrite_palm_rfc822(store.get(store_uidl), now=clock)
+        if palm_id in skip or not _in_window(store, store_uidl, clock):
+            dropped += 1
+            continue
+        rewritten = rewrite_palm_rfc822(
+            store.get(store_uidl),
+            now=clock,
+            fallback_when=store.mtime(store_uidl),
+        )
         if rewritten is None:
             dropped += 1
             continue
         rows.append((store_uidl, palm_id, rewritten))
     logger.info("popd.palm.list_palm_messages | exit | count=%s dropped=%s", len(rows), dropped)
     return rows
+
+
+def _in_window(store: MaildirStore, store_uidl: str, clock: datetime) -> bool:
+    """True when Date or maildir mtime is within 24h.
+
+    :param store: Shared maildir. Example: ``MaildirStore(Path("var/maildir"))``
+    :param store_uidl: Store UIDL. Example: ``"uid-teams-1"``
+    :param clock: Now. Example: ``datetime(2026, 9, 20, tzinfo=UTC)``
+    :return: Whether to rewrite. Example: ``True``
+    """
+    parsed = message_from_bytes(store.peek(store_uidl))
+    when = _message_when(parsed, store.mtime(store_uidl))
+    if when < clock - PALM_WINDOW:
+        logger.debug("popd.palm._in_window | branch | skipped=true reason=too_old")
+        return False
+    return True
 
 
 def load_hidden_uidls(root: Path) -> set[str]:
