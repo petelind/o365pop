@@ -20,7 +20,7 @@ POP_PORT = 11110
 _RFC822 = b"From: tester@example.com\r\nSubject: Q3 close\r\n\r\nBody line\r\n"
 
 
-def _run_popd_process(bind: str, port: int, maildir: str, db_path: str, log_dir: str) -> None:
+def _run_popd_process(bind: str, port: int, maildir: str, db_path: str, log_dir: str, palm_maildir: str) -> None:
     """Child process: block on Twisted reactor.
 
     :param bind: Listen address. Example: ``"127.0.0.1"``
@@ -28,13 +28,20 @@ def _run_popd_process(bind: str, port: int, maildir: str, db_path: str, log_dir:
     :param maildir: Maildir path. Example: ``"/tmp/maildir"``
     :param db_path: sqlite path. Example: ``"/tmp/o365pop.sqlite3"``
     :param log_dir: Child app.log directory. Example: ``"/tmp/logs"``
+    :param palm_maildir: Published Palm tree. Example: ``"/tmp/maildir-palm"``
     :return: None
     """
     from o365pop.logging_setup import configure_logging
     from o365pop.popd.service import run_popd
 
     configure_logging(Path(log_dir))
-    run_popd(bind=bind, port=port, maildir=Path(maildir), db_path=Path(db_path))
+    run_popd(
+        bind=bind,
+        port=port,
+        maildir=Path(maildir),
+        db_path=Path(db_path),
+        palm_maildir=Path(palm_maildir),
+    )
 
 
 def wait_port(host: str, port: int, timeout: float = 5.0) -> None:
@@ -92,9 +99,17 @@ def start_popd(sandbox: MailboxSandbox, port: int) -> Process:
     :param port: Listen port. Example: ``11110``
     :return: Started process. Example: ``<Process>``
     """
+    palm = sandbox.root / "maildir-palm"
     proc = Process(
         target=_run_popd_process,
-        args=(POP_HOST, port, str(sandbox.maildir), str(sandbox.db_path), str(sandbox.log_dir)),
+        args=(
+            POP_HOST,
+            port,
+            str(sandbox.maildir),
+            str(sandbox.db_path),
+            str(sandbox.log_dir),
+            str(palm),
+        ),
         daemon=True,
     )
     proc.start()

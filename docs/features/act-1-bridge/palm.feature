@@ -14,6 +14,7 @@ Feature: PALM VersaMail sees a Palm-safe POP view
     Then STAT reports 1 message
     And UIDL is at most 70 ASCII characters and is not the Graph id
     And RETR is text/plain 7-bit CRLF with Date set and no multipart
+    And RETR has a non-empty body after the header blank line
     And the rewritten size is at most 5120 bytes
 
   Scenario: PALM1.2 Palm hides mail older than 24 hours
@@ -31,3 +32,14 @@ Feature: PALM VersaMail sees a Palm-safe POP view
     Given maildir has one fresh message
     When a POP client as "palm" DELE 1 and QUIT
     Then a later "denis" session still RETR the original message
+
+  Scenario: PALM1.5 PASS does not rewrite
+    Given publish_palm_view has already written maildir-palm
+    When a POP client sends USER "palm" and PASS "local-pass"
+    Then popd app.log has no rewrite_palm_rfc822 beat
+
+  Scenario: PALM1.6 VersaMail sees a visible text body
+    Given maildir has a multipart with a blank text/plain and HTML body
+    When publish_palm_view writes maildir-palm
+    Then the Palm RETR body is the stripped HTML
+    And the file has no MIME-Version

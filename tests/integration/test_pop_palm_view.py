@@ -1,4 +1,4 @@
-"""PALM1 — real poplib against the second POP view."""
+"""PALM1 — real poplib against the published Palm POP view."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from email.utils import format_datetime
 import pytest
 
 from o365pop.mailstore.maildir import MaildirStore
-from o365pop.popd.palm import PALM_MAX_BYTES, PALM_UIDL_MAX, hash_palm_uidl
+from o365pop.tosser.palm_view import PALM_MAX_BYTES, PALM_UIDL_MAX, hash_palm_uidl, publish_palm_view
 from tests.integration.test_pop_auth import _caplog_from_app_log
 from tests.integration.test_pop_retrieve import POP_HOST, seed_local_account, start_popd, stop_popd
 from tests.support.log_story import assert_log_story
@@ -31,6 +31,22 @@ def _fresh_html() -> bytes:
         f"Content-Type: multipart/alternative; boundary=bound\r\n\r\n"
         f"--bound\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nvisible words\r\n"
         f"--bound\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>Ship it</p>\r\n"
+        f"--bound--\r\n"
+    ).encode("utf-8")
+
+
+def _blank_plain_html() -> bytes:
+    """Stub text/plain + HTML body (VersaMail empty-body case).
+
+    :return: RFC822 bytes. Example: ``b"Content-Type: multipart/..."``
+    """
+    date = format_datetime(datetime.now(UTC))
+    return (
+        f"From: Ada <ada@example.com>\r\nTo: denis@example.com\r\n"
+        f"Subject: Teams: ship\r\nDate: {date}\r\nMIME-Version: 1.0\r\n"
+        f"Content-Type: multipart/alternative; boundary=bound\r\n\r\n"
+        f"--bound\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n \r\n"
+        f"--bound\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>Ship it from Teams</p>\r\n"
         f"--bound--\r\n"
     ).encode("utf-8")
 
@@ -59,6 +75,15 @@ def _uidls(client: poplib.POP3) -> list[bytes]:
     return [line.split()[1] for line in client.uidl()[1]]
 
 
+def _publish(sandbox: MailboxSandbox) -> None:
+    """Write maildir-palm from the Entourage store.
+
+    :param sandbox: Isolated paths. Example: ``mailbox_sandbox(...)``
+    :return: None
+    """
+    publish_palm_view(MaildirStore(sandbox.maildir), MaildirStore(sandbox.root / "maildir-palm"))
+
+
 @pytest.mark.integration
 @pytest.mark.log_story
 def test_palm_user_retrieves_hashed_7bit_text(sandbox: MailboxSandbox) -> None:
@@ -68,6 +93,7 @@ def test_palm_user_retrieves_hashed_7bit_text(sandbox: MailboxSandbox) -> None:
     """
     seed_local_account(sandbox)
     MaildirStore(sandbox.maildir).add(_fresh_html(), _LONG_UIDL)
+    _publish(sandbox)
     proc = start_popd(sandbox, POP_PALM_PORT)
     try:
         client = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
@@ -82,6 +108,7 @@ def test_palm_user_retrieves_hashed_7bit_text(sandbox: MailboxSandbox) -> None:
         retr = b"\r\n".join(client.retr(1)[1])
         assert b"multipart" not in retr.lower()
         assert b"text/html" not in retr.lower()
+        assert b"MIME-Version:" not in retr
         assert b"Content-Transfer-Encoding: 7bit" in retr
         assert b"Date:" in retr
         assert b"visible words" in retr
@@ -89,6 +116,8 @@ def test_palm_user_retrieves_hashed_7bit_text(sandbox: MailboxSandbox) -> None:
         client.quit()
     finally:
         stop_popd(proc)
+    log_text = (sandbox.log_dir / "app.log").read_text()
+    assert "rewrite_palm_rfc822" not in log_text
     assert_log_story(
         _caplog_from_app_log(sandbox.log_dir / "app.log"),
         [
@@ -111,6 +140,7 @@ def test_palm_user_hides_mail_older_than_24h(sandbox: MailboxSandbox) -> None:
     store = MaildirStore(sandbox.maildir)
     store.add(_dated("fresh", "now", datetime.now(UTC)), "uid-outlook-fresh")
     store.add(_dated("old", "then", datetime.now(UTC) - timedelta(hours=48)), "uid-outlook-old")
+    _publish(sandbox)
     proc = start_popd(sandbox, POP_PALM_PORT)
     try:
         client = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
@@ -120,7 +150,7 @@ def test_palm_user_hides_mail_older_than_24h(sandbox: MailboxSandbox) -> None:
         assert count == 1
         retr = b"\n".join(client.retr(1)[1])
         assert b"fresh" in retr
-        assert b"old" not in retr or b"Subject: old" not in retr
+        assert b"Subject: old" not in retr
         client.quit()
     finally:
         stop_popd(proc)
@@ -134,6 +164,7 @@ def test_denis_still_sees_original_rfc822_on_same_popd(sandbox: MailboxSandbox) 
     """
     seed_local_account(sandbox)
     MaildirStore(sandbox.maildir).add(_fresh_html(), _LONG_UIDL)
+    _publish(sandbox)
     proc = start_popd(sandbox, POP_PALM_PORT)
     try:
         client = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
@@ -158,6 +189,7 @@ def test_palm_dele_leaves_entourage_copy(sandbox: MailboxSandbox) -> None:
     seed_local_account(sandbox)
     store = MaildirStore(sandbox.maildir)
     store.add(_dated("keep-me", "body", datetime.now(UTC)), "uid-outlook-keep")
+    _publish(sandbox)
     proc = start_popd(sandbox, POP_PALM_PORT)
     try:
         palm = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
@@ -172,5 +204,51 @@ def test_palm_dele_leaves_entourage_copy(sandbox: MailboxSandbox) -> None:
         blob = b"\n".join(sum((denis.retr(i + 1)[1] for i in range(denis.stat()[0])), []))
         assert b"keep-me" in blob
         denis.quit()
+    finally:
+        stop_popd(proc)
+    _publish(sandbox)
+    assert hash_palm_uidl("uid-outlook-keep") not in MaildirStore(sandbox.root / "maildir-palm").iter_uidls()
+
+
+@pytest.mark.integration
+def test_palm_pass_does_not_rewrite(sandbox: MailboxSandbox) -> None:
+    """PALM1.5 popd PASS serves published files only.
+
+    :return: None
+    """
+    seed_local_account(sandbox)
+    MaildirStore(sandbox.maildir).add(_fresh_html(), _LONG_UIDL)
+    _publish(sandbox)
+    proc = start_popd(sandbox, POP_PALM_PORT)
+    try:
+        client = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
+        client.user("palm")
+        client.pass_("local-pass")
+        assert client.stat()[0] == 1
+        client.quit()
+    finally:
+        stop_popd(proc)
+    assert "rewrite_palm_rfc822" not in (sandbox.log_dir / "app.log").read_text()
+
+
+@pytest.mark.integration
+def test_palm_retr_body_from_html_when_plain_is_blank(sandbox: MailboxSandbox) -> None:
+    """PALM1.6 VersaMail RETR has the stripped HTML body.
+
+    :return: None
+    """
+    seed_local_account(sandbox)
+    MaildirStore(sandbox.maildir).add(_blank_plain_html(), _LONG_UIDL)
+    _publish(sandbox)
+    proc = start_popd(sandbox, POP_PALM_PORT)
+    try:
+        client = poplib.POP3(POP_HOST, POP_PALM_PORT, timeout=5)
+        client.user("palm")
+        client.pass_("local-pass")
+        retr = b"\r\n".join(client.retr(1)[1])
+        body = retr.split(b"\r\n\r\n", 1)[1]
+        assert b"Ship it from Teams" in body
+        assert b"MIME-Version:" not in retr
+        client.quit()
     finally:
         stop_popd(proc)

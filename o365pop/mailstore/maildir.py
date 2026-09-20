@@ -23,6 +23,8 @@ class MaildirStore:
         self._root = root
         self._root.mkdir(parents=True, exist_ok=True)
         self._box = mailbox.Maildir(str(root), create=True)
+        for folder in ("cur", "new", "tmp"):
+            (self._root / folder).mkdir(exist_ok=True)
 
     @property
     def root(self) -> Path:

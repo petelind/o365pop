@@ -173,6 +173,7 @@ def run_popd(settings: Settings) -> int:
         bind=settings.pop3_bind,
         port=settings.pop3_port,
         maildir=settings.data_dir / "maildir",
+        palm_maildir=settings.data_dir / "maildir-palm",
         db_path=settings.db_path,
     )
     logger.info("cli.run_popd | exit | status=stopped")

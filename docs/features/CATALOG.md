@@ -48,6 +48,8 @@ TFK-07 adds a row when a new scenario lands. Do not invent Gherkin steps for log
 | PALM1.2 | mail older than 24h omitted | `tests/integration/test_pop_palm_view.py` + `tests/unit/test_palm_view.py` |
 | PALM1.3 | USER `denis` still sees original UIDL and multipart | `tests/integration/test_pop_palm_view.py` |
 | PALM1.4 | Palm DELE does not remove Entourage maildir | `tests/integration/test_pop_palm_view.py` |
+| PALM1.5 | PASS does not rewrite; popd serves maildir-palm | `tests/integration/test_pop_palm_view.py` |
+| PALM1.6 | RETR body visible; stub text/plain uses HTML; no MIME-Version | `tests/unit/test_palm_view.py` + `tests/integration/test_pop_palm_view.py` |
 
 ## SMTP / SEND (`smtp.feature`)
 

@@ -23,6 +23,7 @@ from o365pop.tosser.calendar_snapshot import apply_receipts as apply_calendar_re
 from o365pop.tosser.calendar_snapshot import publish as publish_calendar
 from o365pop.tosser.inbound import InboundTosser
 from o365pop.tosser.outbound_scanner import OutboundScanner
+from o365pop.tosser.palm_view import publish_palm_view
 from o365pop.tosser.task_snapshot import apply_receipts, publish
 
 logger = logging.getLogger(__name__)
@@ -178,6 +179,8 @@ def _run_inbound_sync(conn: sqlite3.Connection, settings: Settings, session: Syn
     graph = _resolve_graph(settings, token)
     maildir = MaildirStore(settings.data_dir / "maildir")
     counts = InboundTosser(conn, maildir, graph).toss_all()
+    palm = MaildirStore(settings.data_dir / "maildir-palm")
+    publish_palm_view(maildir, palm)
     tossed = int(counts["tossed"])
     mark_completed(conn, session.session_id, tossed=tossed)
     logger.info(

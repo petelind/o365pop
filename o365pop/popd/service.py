@@ -20,26 +20,40 @@ from o365pop.config import validate_bind
 from o365pop.db import connect
 from o365pop.mailstore.maildir import MaildirStore
 from o365pop.popd.mailbox import MaildirPopMailbox
-from o365pop.popd.palm import PalmSafeMailbox
+from o365pop.popd.palm import PalmPublishedMailbox
 
 logger = logging.getLogger(__name__)
 
 
-def run_popd(*, bind: str, port: int, maildir: Path, db_path: Path) -> None:
+def run_popd(
+    *,
+    bind: str,
+    port: int,
+    maildir: Path,
+    db_path: Path,
+    palm_maildir: Path | None = None,
+) -> None:
     """Start the Twisted reactor serving POP3.
 
     :param bind: Listen address. Example: ``"10.8.0.1"``
     :param port: Listen port. Example: ``110``
-    :param maildir: Maildir root. Example: ``Path("var/maildir")``
+    :param maildir: Entourage maildir. Example: ``Path("var/maildir")``
     :param db_path: sqlite for local password. Example: ``Path("var/o365pop.sqlite3")``
+    :param palm_maildir: Published Palm tree. Example: ``Path("var/maildir-palm")``
     :return: None (blocks)
     :raises ValueError: if bind is empty
     """
+    palm_root = palm_maildir if palm_maildir is not None else maildir.parent / "maildir-palm"
     logger.info("popd.service.run_popd | entry | bind=%s port=%s", bind, port)
     allow_lan = _allow_lan_from_env()
     validate_bind(bind, allow_lan=allow_lan)
-    logger.info("popd.service.run_popd | config | bind=%s port=%s", bind, port)
-    factory = _build_factory(maildir, db_path)
+    logger.info(
+        "popd.service.run_popd | config | bind=%s port=%s palm=%s",
+        bind,
+        port,
+        palm_root,
+    )
+    factory = _build_factory(maildir, palm_root, db_path)
     reactor.listenTCP(port, factory, interface=bind)
     logger.info("popd.service.run_popd | exit | listening=true bind=%s port=%s", bind, port)
     reactor.run(installSignalHandlers=False)
@@ -53,14 +67,15 @@ def _allow_lan_from_env() -> bool:
     return os.getenv("ALLOW_LAN", "0") in ("1", "true", "TRUE")
 
 
-def _build_factory(maildir: Path, db_path: Path) -> Factory:
+def _build_factory(maildir: Path, palm_maildir: Path, db_path: Path) -> Factory:
     """Portal + POP3 factory (no TLS, no APOP challengers).
 
-    :param maildir: Maildir root. Example: ``Path("var/maildir")``
+    :param maildir: Entourage maildir. Example: ``Path("var/maildir")``
+    :param palm_maildir: Published Palm tree. Example: ``Path("var/maildir-palm")``
     :param db_path: sqlite path. Example: ``Path("var/o365pop.sqlite3")``
     :return: Twisted factory. Example: ``<_POP3Factory>``
     """
-    realm = _MailboxRealm(MaildirStore(maildir))
+    realm = _MailboxRealm(MaildirStore(maildir), MaildirStore(palm_maildir))
     portal = Portal(realm, [_LocalPasswordChecker(db_path)])
     factory = _POP3Factory(portal)
     logger.info("popd.service._build_factory | config | tls=false apop=false")
@@ -105,15 +120,16 @@ class _POP3Factory(Factory):
 class _MailboxRealm:
     """Return a MaildirPopMailbox avatar after successful USER/PASS."""
 
-    def __init__(self, store: MaildirStore) -> None:
+    def __init__(self, store: MaildirStore, palm_store: MaildirStore) -> None:
         self._store = store
+        self._palm_store = palm_store
 
     def requestAvatar(self, avatarId, mind, *interfaces):  # noqa: N802
         if IMailbox not in interfaces:
             raise NotImplementedError("IMailbox required")
         username = _as_text(avatarId)
         if username == PALM_VIEW_USER:
-            mailbox = PalmSafeMailbox(self._store)
+            mailbox = PalmPublishedMailbox(self._palm_store)
             view = "palm"
         else:
             mailbox = MaildirPopMailbox(self._store)
