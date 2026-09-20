@@ -247,6 +247,17 @@ def test_publish_palm_view_skips_hidden_and_reuses_unchanged(sandbox: MailboxSan
 
 
 @pytest.mark.unit
+def test_maildir_store_tolerates_empty_uidl_json(sandbox: MailboxSandbox) -> None:
+    """An empty uidl.json must not raise during publish.
+
+    :return: None
+    """
+    dest = MaildirStore(sandbox.root / "maildir-palm")
+    (dest.root / "uidl.json").write_text("")
+    assert dest.iter_uidls() == []
+
+
+@pytest.mark.unit
 def test_verify_local_password_accepts_palm_alias(tmp_db_path) -> None:
     """USER palm shares the local mailbox password.
 

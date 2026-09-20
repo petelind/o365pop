@@ -229,7 +229,14 @@ def _load_index(root: Path) -> dict[str, Any]:
     path = root / _PALM_INDEX
     if not path.is_file():
         return {}
-    payload = json.loads(path.read_text())
+    raw = path.read_text().strip()
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("tosser.palm_view._load_index | branch | reason=invalid_json")
+        return {}
     return {str(key): dict(value) for key, value in payload.items()}
 
 

@@ -159,7 +159,14 @@ class MaildirStore:
         path = self._root / _UIDL_MAP
         if not path.is_file():
             return {}
-        payload = json.loads(path.read_text())
+        raw = path.read_text().strip()
+        if not raw:
+            return {}
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            logger.warning("MaildirStore._load_uidls | branch | reason=invalid_json")
+            return {}
         return {str(key): str(value) for key, value in payload.items()}
 
     def _save_uidls(self, mapping: dict[str, str]) -> None:
@@ -168,4 +175,7 @@ class MaildirStore:
         :param mapping: uidl → key. Example: ``{"uid-outlook-1": "1234.M1"}``
         :return: None
         """
-        (self._root / _UIDL_MAP).write_text(json.dumps(mapping))
+        path = self._root / _UIDL_MAP
+        tmp = path.with_name("uidl.json.tmp")
+        tmp.write_text(json.dumps(mapping))
+        tmp.replace(path)
