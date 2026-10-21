@@ -25,9 +25,6 @@ if ! docker inspect o365pop >/dev/null 2>&1; then
 		-e PYTHONPATH=/app:/mhs/src \
 		-e O365POP_ROOT=/app \
 		-e O365POP_ENV=/app/.env \
-		-e DATA_DIR=/app/data \
-		-e DB_PATH=/app/data/modernhotsync.sqlite3 \
-		-e LOG_DIR=/app/logs \
 		-e TRANSPORT=network \
 		python:3.12-slim \
 		/app/deploy/libreelec/run-daemons.sh

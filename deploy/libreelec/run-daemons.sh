@@ -13,8 +13,10 @@ echo "o365pop daemons starting"
 "$PY" -m o365pop popd &
 "$PY" -m o365pop smtpd &
 if [ -d /mhs/src/modernhotsync ]; then
-	echo "modernhotsync serve starting (TCP 14238)"
-	"$PY" -m pip install -q httpx msal cryptography python-dotenv
+	echo "modernhotsync serve starting (UDP 14237 + TCP 14238)"
+	if ! "$PY" -c "import httpx,msal,cryptography,dotenv" >/dev/null 2>&1; then
+		"$PY" -m pip install -q httpx msal cryptography python-dotenv
+	fi
 	if [ -f /mhs/.env ]; then
 		set -a
 		# shellcheck disable=SC1091
